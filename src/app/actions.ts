@@ -1,8 +1,10 @@
+
 // src/app/actions.ts
 'use server';
 
 import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
+import { translateText } from '@/ai/flows/translate-text-flow';
 import { z } from 'zod';
 
 export interface SummaryResult {
@@ -12,15 +14,20 @@ export interface SummaryResult {
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
 const OutputFormatSchema = z.enum(['resume', 'fiche', 'qcm', 'audio']);
+const TargetLanguageSchema = z.enum(['fr', 'en', 'es']);
+export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
+
 
 // This function will be called from the client component
 export async function generateSummaryAction(
   inputType: z.infer<typeof InputTypeSchema>,
   inputValue: string, // text content, youtube URL, or PDF file name (for mock)
-  outputFormat: z.infer<typeof OutputFormatSchema>
+  outputFormat: z.infer<typeof OutputFormatSchema>,
+  targetLanguage: TargetLanguage
 ): Promise<SummaryResult> {
   let baseSummary = '';
   let sourceName = '';
+  let translatedLabel = "";
 
   try {
     if (inputType === 'text') {
@@ -30,7 +37,6 @@ export async function generateSummaryAction(
       baseSummary = result.summary;
     } else if (inputType === 'youtube') {
       sourceName = 'Vidéo YouTube';
-      // Basic validation, more robust validation can be added
       if (!inputValue.includes('youtube.com/') && !inputValue.includes('youtu.be/')) {
         throw new Error('Veuillez entrer une URL YouTube valide.');
       }
@@ -38,8 +44,6 @@ export async function generateSummaryAction(
       baseSummary = result.summary;
     } else if (inputType === 'pdf') {
       sourceName = inputValue; // filename
-      // For PDF, we are mocking the summarization process as text extraction is not implemented.
-      // In a real application, you would extract text from the PDF here and then call summarizeText.
       baseSummary = `Ceci est un résumé simulé pour le fichier PDF : ${inputValue}. 
       Dans une application réelle, le contenu textuel du PDF serait extrait et analysé par l'IA. 
       Ce résumé fictif met en évidence les points clés typiques qu'une IA pourrait identifier, tels que l'objectif principal du document, les méthodologies employées, les résultats obtenus et les conclusions principales.
@@ -50,30 +54,35 @@ export async function generateSummaryAction(
       - Conclusion et Recommandations
       L'IA s'efforcerait de fournir une synthèse concise et pertinente.`;
     }
+
+    // Translate summary if target language is not French (assuming original summary is French)
+    if (targetLanguage !== 'fr' && baseSummary) {
+      const translationResult = await translateText({ textToTranslate: baseSummary, targetLanguage: targetLanguage });
+      baseSummary = translationResult.translatedText;
+      if (targetLanguage === 'en') translatedLabel = " (Translated to English)";
+      if (targetLanguage === 'es') translatedLabel = " (Traducido al Español)";
+    }
+
   } catch (error) {
-    console.error("Error during AI summarization:", error);
-    // Ensure the error message passed to the client is a string
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la génération du résumé.";
+    console.error("Error during AI processing:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la génération ou traduction.";
     throw new Error(errorMessage);
   }
 
   // Adapt baseSummary to the selected outputFormat
-  // These are simplified versions based on the user's mock data structure.
-  // The AI's `baseSummary` is used as the core content.
-
   if (outputFormat === 'resume') {
     return {
-      title: `Résumé - ${sourceName}`,
+      title: `Résumé - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📋 Points clés principaux :</h4>
         <p>${baseSummary.replace(/\n/g, '<br/>')}</p>
         <h4 style="font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">🎯 Conclusion :</h4>
-        <p>Cette synthèse a été générée par une IA. Elle vise à fournir un aperçu concis du contenu original.</p>
+        <p>Cette synthèse a été générée et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis du contenu original.</p>
       `
     };
   } else if (outputFormat === 'fiche') {
     return {
-      title: `Fiche de révision - ${sourceName}`,
+      title: `Fiche de révision - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📚 FICHE DE RÉVISION</h4>
         <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
@@ -89,10 +98,8 @@ export async function generateSummaryAction(
       `
     };
   } else if (outputFormat === 'qcm') {
-    // QCM is largely hardcoded as the AI flow doesn't generate interactive QCMs.
-    // The baseSummary is included for context.
     return {
-      title: `QCM - ${sourceName}`,
+      title: `QCM - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">❓ QUESTIONNAIRE D'ÉVALUATION (Exemple)</h4>
         <p><strong>Résumé de base pour contexte:</strong><br/>${baseSummary.replace(/\n/g, '<br/>')}</p>
@@ -118,7 +125,7 @@ export async function generateSummaryAction(
     };
   } else if (outputFormat === 'audio') {
     return {
-      title: `Version Audio - ${sourceName}`,
+      title: `Version Audio - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio (Simulation)</h4>
         <p>La génération audio pour le résumé est une fonctionnalité en cours de développement.</p>
@@ -128,6 +135,6 @@ export async function generateSummaryAction(
     };
   }
 
-  // Default fallback (should ideally not be reached if outputFormat is validated)
-  return { title: `Résumé Inconnu - ${sourceName}`, content: baseSummary.replace(/\n/g, '<br/>') };
+  return { title: `Résumé Inconnu - ${sourceName}${translatedLabel}`, content: baseSummary.replace(/\n/g, '<br/>') };
 }
+

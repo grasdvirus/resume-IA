@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ChangeEvent, DragEvent } from 'react';
@@ -7,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages } from 'lucide-react';
 import { generateSummaryAction, type SummaryResult } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
+type TargetLanguage = "fr" | "en" | "es";
 
 interface OptionCardProps {
   icon: React.ReactNode;
@@ -50,6 +53,7 @@ export function SummarizerClientWrapper() {
   const [videoUrl, setVideoUrl] = useState("");
   const [inputText, setInputText] = useState("");
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<OutputFormat>("resume");
+  const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>("fr");
   const [isProcessing, setIsProcessing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +139,7 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
-      if (inputText.trim().length < 50) { // Reduced from 100 for easier testing
+      if (inputText.trim().length < 50) { 
          setError("Le texte doit contenir au moins 50 caractères.");
          setIsProcessing(false);
          return;
@@ -144,7 +148,7 @@ export function SummarizerClientWrapper() {
     }
 
     try {
-      const result = await generateSummaryAction(currentInputType, currentInputValue, selectedOutputFormat);
+      const result = await generateSummaryAction(currentInputType, currentInputValue, selectedOutputFormat, selectedLanguage);
       setSummaryResult(result);
     } catch (e: any) {
       setError(e.message || "Une erreur est survenue.");
@@ -161,6 +165,7 @@ export function SummarizerClientWrapper() {
     setPdfFileName("");
     setVideoUrl("");
     setInputText("");
+    setSelectedLanguage("fr");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -168,7 +173,6 @@ export function SummarizerClientWrapper() {
 
   const downloadResult = () => {
     if (!summaryResult || !summaryResult.content) return;
-    // Create a temporary element to parse HTML and get text
     const tempEl = document.createElement('div');
     tempEl.innerHTML = summaryResult.content;
     const textContent = tempEl.textContent || tempEl.innerText || "";
@@ -177,7 +181,7 @@ export function SummarizerClientWrapper() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resume-${selectedOutputFormat}-${Date.now()}.txt`;
+    a.download = `resume-${selectedOutputFormat}-${selectedLanguage}-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -211,13 +215,12 @@ export function SummarizerClientWrapper() {
     }
   };
   
-  // For QCM button
   useEffect(() => {
     if (summaryResult && selectedOutputFormat === 'qcm' && typeof window !== 'undefined') {
       const checkAnswersButton = document.querySelector('#qcm-form + button');
       if (checkAnswersButton && !(checkAnswersButton as any).listenerAttached) {
         const qcmResultEl = document.getElementById('qcm-result');
-        (checkAnswersButton as any).listenerAttached = true; // Mark as listener attached
+        (checkAnswersButton as any).listenerAttached = true; 
         checkAnswersButton.addEventListener('click', () => {
           if (qcmResultEl) {
             qcmResultEl.textContent = 'Vérification des réponses simulée. Dans une vraie application, les réponses seraient validées ici.';
@@ -291,6 +294,23 @@ export function SummarizerClientWrapper() {
                   <OptionCard icon={<ListChecks />} title="QCM" description="Questions de révision" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={setSelectedOutputFormat} />
                 </div>
               </div>
+
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold font-headline mb-4 text-center">
+                  <Languages className="inline-block mr-2 h-6 w-6 align-text-bottom" />
+                  Langue de traduction :
+                </h3>
+                <Select value={selectedLanguage} onValueChange={(value) => setSelectedLanguage(value as TargetLanguage)}>
+                  <SelectTrigger className="w-full sm:w-[280px] mx-auto h-12 text-base">
+                    <SelectValue placeholder="Sélectionnez une langue" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fr">Français</SelectItem>
+                    <SelectItem value="en">Anglais (English)</SelectItem>
+                    <SelectItem value="es">Espagnol (Español)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               {error && (
                 <div className="mb-4 p-4 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-center">
@@ -300,12 +320,13 @@ export function SummarizerClientWrapper() {
               )}
 
               <Button onClick={handleSubmit} size="lg" className="w-full text-lg py-6 font-headline bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:opacity-90">
+                {isProcessing ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : null}
                 {activeTab === "pdf" ? "Analyser le PDF" : activeTab === "video" ? "Analyser la vidéo" : "Résumer le texte"}
               </Button>
             </>
           )}
 
-          {isProcessing && (
+          {isProcessing && !summaryResult && (
             <div className="text-center py-12">
               <Loader2 className="mx-auto h-16 w-16 text-primary animate-spin mb-6" />
               <h3 className="text-2xl font-semibold font-headline mb-2">Analyse en cours...</h3>
@@ -333,21 +354,21 @@ export function SummarizerClientWrapper() {
       <style jsx global>{`
         .result-content-area ul, .result-content-area ol {
           list-style-position: inside;
-          padding-left: 1.5em; /* Adjust as needed */
-          margin-left: 0; /* Reset default browser margin */
+          padding-left: 1.5em; 
+          margin-left: 0; 
         }
         .result-content-area ul li, .result-content-area ol li {
           margin-bottom: 0.5em;
         }
         .result-content-area h4 {
-          font-size: 1.25em; /* Example size, adjust as needed */
+          font-size: 1.25em; 
           margin-top: 1em;
           margin-bottom: 0.5em;
         }
          .result-content-area p {
           margin-bottom: 1em;
         }
-        .action-btn { /* For dynamically added QCM button */
+        .action-btn { 
             padding: 0.8rem 1.5rem;
             border-radius: 8px;
             cursor: pointer;
@@ -363,3 +384,4 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
+
