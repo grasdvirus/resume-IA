@@ -2,14 +2,14 @@
 "use client";
 
 import type { ChangeEvent, DragEvent } from 'react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages } from 'lucide-react';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle } from 'lucide-react';
 import { generateSummaryAction, type SummaryResult } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -59,8 +59,29 @@ export function SummarizerClientWrapper() {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
+    
+    const handleSpeechEnd = () => setIsSpeaking(false);
+
+    // Clean up speech synthesis on component unmount or when utterance changes
+    return () => {
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      if (utteranceRef.current) {
+        utteranceRef.current.removeEventListener('end', handleSpeechEnd);
+      }
+    };
+  }, []);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -115,8 +136,12 @@ export function SummarizerClientWrapper() {
     setIsProcessing(true);
     setSummaryResult(null);
     setError(null);
+     if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
 
-    let currentInputType = activeTab;
+    let currentInputType = activeTab as 'text' | 'youtube' | 'pdf'; // Type assertion for generateSummaryAction
     let currentInputValue = "";
 
     if (activeTab === "pdf") {
@@ -125,15 +150,15 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
-      currentInputType = 'pdf'; // Ensure correct type for action
-      currentInputValue = pdfFile.name; // Pass filename for mock processing
+      currentInputType = 'pdf';
+      currentInputValue = pdfFile.name; 
     } else if (activeTab === "video") {
       if (!videoUrl.trim()) {
         setError("Veuillez entrer une URL YouTube.");
         setIsProcessing(false);
         return;
       }
-      currentInputType = 'youtube'; // Ensure correct type for action
+      currentInputType = 'youtube';
       currentInputValue = videoUrl;
     } else if (activeTab === "text") {
       if (!inputText.trim()) {
@@ -146,7 +171,7 @@ export function SummarizerClientWrapper() {
          setIsProcessing(false);
          return;
       }
-      currentInputType = 'text'; // Ensure correct type for action
+      currentInputType = 'text';
       currentInputValue = inputText;
     }
 
@@ -172,14 +197,30 @@ export function SummarizerClientWrapper() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
   };
 
-  const getPlainTextFromResult = () => {
+  const getPlainTextFromResult = useCallback(() => {
     if (!summaryResult || !summaryResult.content) return "";
     const tempEl = document.createElement('div');
     tempEl.innerHTML = summaryResult.content;
-    return tempEl.textContent || tempEl.innerText || "";
-  }
+     // Améliorer l'extraction de texte pour la synthèse vocale
+    tempEl.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(header => {
+        const p = document.createElement('p');
+        p.textContent = (header.textContent || "") + ". "; // Ajouter un point et un espace
+        header.parentNode?.replaceChild(p, header);
+    });
+    // Supprimer les éléments non pertinents pour la lecture (ex: boutons dans le QCM)
+    tempEl.querySelectorAll('button, input[type="radio"]+label, #qcm-form, #qcm-result').forEach(el => el.remove());
+    
+    // Remplacer les <br> par des espaces pour une meilleure fluidité
+    tempEl.innerHTML = tempEl.innerHTML.replace(/<br\s*\/?>/gi, ' ');
+
+    return (tempEl.textContent || tempEl.innerText || "").replace(/\s+/g, ' ').trim();
+  }, [summaryResult]);
 
   const downloadResult = () => {
     const textContent = getPlainTextFromResult();
@@ -212,8 +253,6 @@ export function SummarizerClientWrapper() {
         await navigator.share(shareData);
         toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
       } catch (err) {
-        // If sharing fails, or is cancelled, do nothing or log error
-        // console.error("Share failed:", err);
         // toast({ title: "Erreur de partage", description: "Le partage a été annulé ou a échoué.", variant: "destructive" });
       }
     } else {
@@ -223,6 +262,52 @@ export function SummarizerClientWrapper() {
       } catch (err) {
         toast({ title: "Erreur de copie", description: "Impossible de copier le résumé dans le presse-papiers.", variant: "destructive" });
       }
+    }
+  };
+
+  const handleExportPdf = () => {
+    if (!summaryResult) return;
+    window.print();
+    toast({ title: "Export PDF", description: "Utilisez la fonction 'Enregistrer en PDF' de votre navigateur." });
+  };
+  
+  const handleToggleAudio = () => {
+    if (!speechSynthesisSupported || !summaryResult) {
+      toast({ title: "Synthèse vocale non supportée", description: "Votre navigateur ne supporte pas la synthèse vocale, ou il n'y a pas de résumé à lire.", variant: "destructive" });
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      const textToSpeak = getPlainTextFromResult();
+      if (!textToSpeak) {
+        toast({ title: "Aucun texte à lire", description: "Le contenu du résumé est vide.", variant: "destructive" });
+        return;
+      }
+      
+      const newUtterance = new SpeechSynthesisUtterance(textToSpeak);
+      const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' };
+      newUtterance.lang = langMap[selectedLanguage] || 'fr-FR';
+      
+      // Nettoyer l'ancien écouteur s'il existe
+      if (utteranceRef.current) {
+        utteranceRef.current.removeEventListener('end', () => setIsSpeaking(false));
+      }
+      
+      newUtterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      newUtterance.onerror = (event) => {
+        console.error('SpeechSynthesisUtterance.onerror', event);
+        setIsSpeaking(false);
+        toast({ title: "Erreur de lecture", description: "Impossible de lire le résumé.", variant: "destructive" });
+      };
+      
+      utteranceRef.current = newUtterance;
+      window.speechSynthesis.speak(newUtterance);
+      setIsSpeaking(true);
     }
   };
   
@@ -349,13 +434,16 @@ export function SummarizerClientWrapper() {
             <div>
               <h3 className="text-3xl font-bold font-headline text-center mb-6">✨ {summaryResult.title || "Votre résumé est prêt !"} ✨</h3>
               <Card className="mb-6 shadow-inner bg-muted/30">
-                <CardContent className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none p-6 result-content-area" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
+                <CardContent id="summaryContent" className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none p-6 result-content-area" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
               </Card>
               <div className="flex flex-wrap gap-4 justify-center">
                 <Button onClick={downloadResult} variant="default"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
                 <Button onClick={shareResult} variant="outline" className="text-foreground"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
-                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "L'export PDF sera bientôt disponible. En attendant, vous pouvez télécharger le résumé en .txt."})} variant="outline" className="text-foreground"><FileText className="mr-2 h-5 w-5" />Export PDF</Button>
-                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "La lecture audio du résumé sera bientôt disponible."})} variant="outline" className="text-foreground"><AudioWaveform className="mr-2 h-5 w-5" />Version audio</Button>
+                <Button onClick={handleExportPdf} variant="outline" className="text-foreground"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
+                <Button onClick={handleToggleAudio} variant="outline" className="text-foreground" disabled={!speechSynthesisSupported}>
+                  {isSpeaking ? <StopCircle className="mr-2 h-5 w-5" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+                  {isSpeaking ? "Arrêter la lecture" : "Lire le résumé"}
+                </Button>
                 <Button onClick={handleNewSummary} variant="secondary"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
               </div>
             </div>
@@ -390,6 +478,36 @@ export function SummarizerClientWrapper() {
         }
         .action-btn:hover {
             opacity: 0.9;
+        }
+
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #summaryContent, #summaryContent * {
+            visibility: visible;
+          }
+          #summaryContent {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+            margin: 0;
+            font-size: 12pt;
+          }
+          #summaryContent h3, #summaryContent h4, #summaryContent h5 {
+             font-size: 14pt;
+             margin-top: 0.5em;
+             margin-bottom: 0.25em;
+          }
+           #summaryContent p, #summaryContent li {
+             font-size: 12pt;
+             line-height: 1.4;
+          }
+          .no-print {
+            display: none !important;
+          }
         }
       `}</style>
     </section>
