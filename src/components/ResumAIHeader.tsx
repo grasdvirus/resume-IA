@@ -1,3 +1,4 @@
+
 // src/components/ResumAIHeader.tsx
 "use client";
 
@@ -14,8 +15,24 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import React, { useState } from 'react'; // Ajout de useState
 
 export function ResumAIHeader() {
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+
+  const handleSendFeedback = () => {
+    const subject = encodeURIComponent("Avis sur Résumé IA");
+    let body = encodeURIComponent(contactMessage);
+    if (contactEmail) {
+      body += encodeURIComponent(`\n\nDe : ${contactEmail}`);
+    }
+    window.location.href = `mailto:publixstore.exe@gmail.com?subject=${subject}&body=${body}`;
+  };
+
   return (
     <header className="bg-card/95 backdrop-blur-md sticky top-0 z-50 shadow-md">
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
@@ -60,26 +77,52 @@ export function ResumAIHeader() {
           <li>
             <Dialog>
               <DialogTrigger asChild>
-                <button className="text-foreground hover:text-primary transition-colors font-medium">Contact</button>
+                <button className="text-foreground hover:text-primary transition-colors font-medium">Contact & Avis</button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle className="font-headline text-2xl">Contactez-nous & Avis</DialogTitle>
+                  <DialogTitle className="font-headline text-2xl">Laissez-nous votre avis</DialogTitle>
                   <DialogDescription>
-                    Votre avis est précieux ! Pour toute question, suggestion ou pour partager votre expérience :
+                    Votre expérience nous intéresse ! Partagez vos suggestions ou questions.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
-                  <p className="text-center">
-                    Envoyez-nous un e-mail à : <a href="mailto:contact@resumai.app" className="text-primary hover:underline">contact@resumai.app</a>
-                  </p>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="contact-email" className="text-right">
+                      Email (Facultatif)
+                    </Label>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      className="col-span-3"
+                      placeholder="votre.email@example.com"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="contact-message" className="text-right pt-1">
+                      Votre Avis
+                    </Label>
+                    <Textarea
+                      id="contact-message"
+                      value={contactMessage}
+                      onChange={(e) => setContactMessage(e.target.value)}
+                      className="col-span-3 min-h-[100px]"
+                      placeholder="Écrivez votre message ici..."
+                      required
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
                     <Button type="button" variant="secondary">
-                      Fermer
+                      Annuler
                     </Button>
                   </DialogClose>
+                  <Button type="button" onClick={handleSendFeedback} disabled={!contactMessage.trim()}>
+                    Envoyer l'avis
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
