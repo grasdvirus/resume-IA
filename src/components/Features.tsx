@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Target, Shuffle, Smartphone } from 'lucide-react';
+import { Zap, Target, Shuffle, Smartphone, Languages } from 'lucide-react';
 
 const featuresData = [
   {
@@ -21,6 +21,11 @@ const featuresData = [
     icon: <Smartphone className="h-12 w-12 text-primary" />,
     title: "Multi-supports",
     description: "Fiches de révision, audio, QCM... Adaptez selon vos besoins.",
+  },
+  {
+    icon: <Languages className="h-12 w-12 text-primary" />,
+    title: "Traduction multilingue",
+    description: "Traduisez vos résumés dans la langue de votre choix.",
   },
 ];
 
