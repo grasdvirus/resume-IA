@@ -51,10 +51,8 @@ export async function generateSummaryAction(
       baseSummary = `
       <p style="background-color: #fff9c4; border-left: 4px solid #ffeb3b; padding: 1em; margin-bottom: 1em;">
         <strong>Note Importante : Ceci est une DÉMONSTRATION du traitement des PDF.</strong><br/>
-        Actuellement, le contenu du fichier PDF <em>${inputValue}</em> n'est pas lu ni analysé. Le résumé ci-dessous est un exemple générique.
-      </p>
-      <p>
-        Pour une fonctionnalité complète, il faudrait mettre en place un système d'extraction de texte à partir du fichier PDF. Ce texte serait ensuite envoyé à l'intelligence artificielle pour être résumé.
+        Le système actuel <em>ne lit pas et n'analyse pas le contenu du fichier PDF ${inputValue}</em>. Le "résumé" ci-dessous est un exemple générique pour illustrer le format de sortie et le flux de travail.
+        Pour une fonctionnalité complète, il faudrait intégrer une bibliothèque d'extraction de texte PDF (comme pdf.js côté client) ou un traitement backend pour analyser le fichier.
       </p>
       <p><strong>Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :</strong></p>
       <p>
@@ -145,23 +143,25 @@ export async function generateSummaryAction(
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">❓ QUESTIONNAIRE D'ÉVALUATION (Exemple)</h4>
         <p><strong>Résumé de base pour contexte:</strong><br/>${contentForQCM.replace(/\n/g, '<br/>')}</p>
         
-        <div id="qcm-form" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
-            <h5 style="font-weight: bold;">Question 1 : Quel est le thème principal abordé dans le résumé ?</h5>
-            <div style="margin: 0.5rem 0;">
-                <label><input type="radio" name="q1" value="a"/> A) Un sujet non pertinent</label><br/>
-                <label><input type="radio" name="q1" value="b"/> B) Le thème central du résumé fourni</label><br/>
-                <label><input type="radio" name="q1" value="c"/> C) Un détail mineur</label>
-            </div>
+        <div id="qcm-container">
+          <div class="qcm-question-block" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
+              <h5 style="font-weight: bold;">Question 1 : Quel est le thème principal abordé dans le résumé ?</h5>
+              <div style="margin: 0.5rem 0;">
+                  <label><input type="radio" name="q1" value="q1a"/> A) Un sujet non pertinent</label><br/>
+                  <label><input type="radio" name="q1" value="q1b"/> B) Le thème central du résumé fourni</label><br/>
+                  <label><input type="radio" name="q1" value="q1c"/> C) Un détail mineur</label>
+              </div>
+          </div>
+           <div class="qcm-question-block" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
+              <h5 style="font-weight: bold;">Question 2 : L'IA a-t-elle généré ce résumé ?</h5>
+              <div style="margin: 0.5rem 0;">
+                  <label><input type="radio" name="q2" value="q2a"/> A) Oui</label><br/>
+                  <label><input type="radio" name="q2" value="q2b"/> B) Non</label>
+              </div>
+          </div>
         </div>
-         <div style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
-            <h5 style="font-weight: bold;">Question 2 : L'IA a-t-elle généré ce résumé ?</h5>
-            <div style="margin: 0.5rem 0;">
-                <label><input type="radio" name="q2" value="a"/> A) Oui</label><br/>
-                <label><input type="radio" name="q2" value="b"/> B) Non</label>
-            </div>
-        </div>
-        <button class="action-btn btn-primary">Vérifier mes réponses</button>
-        <p id="qcm-result" style="margin-top: 1rem; font-weight: bold;"></p>
+        <button id="check-qcm-answers-button" class="action-btn btn-primary">Vérifier mes réponses</button>
+        <p id="qcm-result-text" style="margin-top: 1rem; font-weight: bold;"></p>
       `
     };
   } else if (outputFormat === 'audio') {

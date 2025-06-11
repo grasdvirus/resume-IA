@@ -221,7 +221,7 @@ export function SummarizerClientWrapper() {
         header.parentNode?.replaceChild(p, header);
     });
     // Supprimer les éléments non pertinents pour la lecture (ex: boutons dans le QCM)
-    tempEl.querySelectorAll('button, input[type="radio"]+label, #qcm-form, #qcm-result').forEach(el => el.remove());
+    tempEl.querySelectorAll('button, input[type="radio"]+label, #qcm-container, #qcm-result-text').forEach(el => el.remove());
     
     // Remplacer les <br> par des espaces pour une meilleure fluidité
     tempEl.innerHTML = tempEl.innerHTML.replace(/<br\s*\/?>/gi, ' ');
@@ -321,27 +321,46 @@ export function SummarizerClientWrapper() {
   
   useEffect(() => {
     if (summaryResult && selectedOutputFormat === 'qcm' && typeof window !== 'undefined') {
-      const checkAnswersButton = document.querySelector('#qcm-form + button.action-btn');
-      if (checkAnswersButton) {
-        const qcmResultEl = document.getElementById('qcm-result');
-        
-        // Store the handler in a ref to be able to remove it later if needed, or ensure it's only attached once
+      const checkAnswersButton = document.getElementById('check-qcm-answers-button');
+      const qcmResultEl = document.getElementById('qcm-result-text');
+      
+      if (checkAnswersButton && qcmResultEl) {
         const clickHandler = () => {
-          if (qcmResultEl) {
-            qcmResultEl.textContent = 'Vérification des réponses simulée. Dans une vraie application, les réponses seraient validées ici.';
-            toast({title: "QCM", description: "Vérification simulée des réponses."});
+          const answerQ1Input = document.querySelector('input[name="q1"]:checked') as HTMLInputElement | null;
+          const answerQ2Input = document.querySelector('input[name="q2"]:checked') as HTMLInputElement | null;
+
+          const userAnswers = {
+            q1: answerQ1Input ? answerQ1Input.value : null,
+            q2: answerQ2Input ? answerQ2Input.value : null,
+          };
+
+          const correctAnswers = {
+            q1: "q1b", // B) Le thème central du résumé fourni
+            q2: "q2a", // A) Oui
+          };
+
+          let score = 0;
+          let feedbackText = "";
+
+          if (!userAnswers.q1 || !userAnswers.q2) {
+            feedbackText = "Veuillez répondre à toutes les questions.";
+          } else {
+            if (userAnswers.q1 === correctAnswers.q1) score++;
+            if (userAnswers.q2 === correctAnswers.q2) score++;
+            feedbackText = `Vous avez obtenu ${score} sur 2 bonnes réponses.`;
           }
+          
+          qcmResultEl.textContent = feedbackText;
+          toast({ title: "Résultat du QCM", description: feedbackText });
         };
 
         // Simple way to avoid re-adding: remove before adding if it might exist from a previous render
-        // This is still not purely React-way, but less prone to multiple listeners than just adding.
-        // A more robust solution would involve React refs for elements and managing listeners in cleanup.
-        const buttonElement = checkAnswersButton as HTMLButtonElement & { _clickHandler?: () => void };
-        if (buttonElement._clickHandler) {
-            buttonElement.removeEventListener('click', buttonElement._clickHandler);
+        const buttonElement = checkAnswersButton as HTMLButtonElement & { _qcmClickHandler?: () => void };
+        if (buttonElement._qcmClickHandler) {
+            buttonElement.removeEventListener('click', buttonElement._qcmClickHandler);
         }
         buttonElement.addEventListener('click', clickHandler);
-        buttonElement._clickHandler = clickHandler; // Store for potential removal
+        buttonElement._qcmClickHandler = clickHandler; // Store for potential removal
       }
     }
   }, [summaryResult, selectedOutputFormat, toast]);
@@ -403,7 +422,7 @@ export function SummarizerClientWrapper() {
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <OptionCard icon={<Newspaper />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={setSelectedOutputFormat} />
+                  <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<ListChecks />} title="QCM" description="Questions de révision" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={setSelectedOutputFormat} />
