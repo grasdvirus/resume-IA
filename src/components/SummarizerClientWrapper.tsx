@@ -158,6 +158,13 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
+      // Validation de format URL YouTube plus stricte côté client
+      const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]{11}(&\S*)?$/;
+      if (!youtubeRegex.test(videoUrl)) {
+        setError("Veuillez entrer une URL YouTube valide (ex: youtube.com/watch?v=... ou youtu.be/...).");
+        setIsProcessing(false);
+        return;
+      }
       currentInputType = 'youtube';
       currentInputValue = videoUrl;
     } else if (activeTab === "text") {
