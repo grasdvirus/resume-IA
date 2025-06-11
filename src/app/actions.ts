@@ -5,11 +5,13 @@
 import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
+import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow'; // Nouvelle importation
 import { z } from 'zod';
 
 export interface SummaryResult {
   title: string;
-  content: string; // HTML content
+  content: string; // HTML content or base text for QCM
+  quizData?: QuizData; // Nouveau champ pour les données du quiz
 }
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
@@ -32,6 +34,7 @@ export async function generateSummaryAction(
   let baseSummary = '';
   let sourceName = '';
   let translatedLabel = "";
+  let quizData: QuizData | undefined = undefined;
 
   try {
     if (inputType === 'text') {
@@ -51,8 +54,7 @@ export async function generateSummaryAction(
       baseSummary = `
       <p style="background-color: #fff9c4; border-left: 4px solid #ffeb3b; padding: 1em; margin-bottom: 1em;">
         <strong>Note Importante : Ceci est une DÉMONSTRATION du traitement des PDF.</strong><br/>
-        Le système actuel <em>ne lit pas et n'analyse pas le contenu du fichier PDF ${inputValue}</em>. Le "résumé" ci-dessous est un exemple générique pour illustrer le format de sortie et le flux de travail.
-        Pour une fonctionnalité complète, il faudrait intégrer une bibliothèque d'extraction de texte PDF (comme pdf.js côté client) ou un traitement backend pour analyser le fichier.
+        Le système actuel <em>ne lit pas et n'analyse pas le contenu du fichier PDF ${inputValue}</em>. Le "résumé" ci-dessous est un exemple générique pour illustrer le format de sortie et le flux de travail. Pour une fonctionnalité complète, il faudrait intégrer une bibliothèque d'extraction de texte PDF (comme pdf.js côté client) ou un traitement backend pour analyser le fichier.
       </p>
       <p><strong>Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :</strong></p>
       <p>
@@ -70,32 +72,46 @@ export async function generateSummaryAction(
       </p>`;
     }
 
-    // Translate summary if target language is not French (assuming original summary is French)
-    if (targetLanguage !== 'fr' && baseSummary) {
-      // For PDF simulation, we also "translate" the generic content.
-      // For real summaries, this would translate the actual AI-generated summary.
-      let textToTranslateForSummary = baseSummary;
-      if (inputType === 'pdf') {
-        // Extract only the "example" part for translation to avoid re-translating the disclaimer.
+    let summaryForProcessing = baseSummary; // Ce sera le texte utilisé pour la traduction ou la génération de QCM
+
+    // Pour les PDF simulés, nous ne voulons pas traduire ni générer de QCM sur la note de démo entière.
+    // Nous utilisons la partie "exemple" du contenu.
+    if (inputType === 'pdf') {
         const exampleMarker = "Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :";
         const exampleContentIndex = baseSummary.indexOf(exampleMarker);
         if (exampleContentIndex !== -1) {
-            textToTranslateForSummary = baseSummary.substring(exampleContentIndex + exampleMarker.length);
+            summaryForProcessing = baseSummary.substring(exampleContentIndex + exampleMarker.length).replace(/<[^>]+>/g, ''); // Strip HTML tags for AI processing
+        } else {
+            summaryForProcessing = baseSummary.replace(/<[^>]+>/g, ''); // Strip HTML tags
         }
-      }
-      
-      const translationResult = await translateText({ textToTranslate: textToTranslateForSummary, targetLanguage: targetLanguage });
-      
-      if (inputType === 'pdf') {
-        const disclaimerPart = baseSummary.substring(0, baseSummary.indexOf(exampleMarker) + exampleMarker.length);
-        baseSummary = disclaimerPart + translationResult.translatedText;
+    }
+
+
+    // Translate summary if target language is not French (original summary is French)
+    let processedSummaryForOutput = summaryForProcessing; // Ce sera le résumé affiché ou utilisé pour le QCM
+
+    if (targetLanguage !== 'fr' && summaryForProcessing) {
+      const translationResult = await translateText({ textToTranslate: summaryForProcessing, targetLanguage: targetLanguage });
+      processedSummaryForOutput = translationResult.translatedText;
+
+      if (inputType === 'pdf') { // Si c'est un PDF, on garde le disclaimer original non traduit
+        const disclaimerPart = baseSummary.substring(0, baseSummary.indexOf(summaryForProcessing));
+        baseSummary = disclaimerPart + processedSummaryForOutput; // baseSummary devient la version html avec le résumé traduit
       } else {
-        baseSummary = translationResult.translatedText;
+        baseSummary = processedSummaryForOutput; // Pour texte/youtube, baseSummary est directement le résumé traduit
       }
 
       if (targetLanguage === 'en') translatedLabel = " (Translated to English)";
       if (targetLanguage === 'es') translatedLabel = " (Traducido al Español)";
     }
+
+
+    // Generate QCM if selected
+    if (outputFormat === 'qcm') {
+        // Le QCM doit être généré sur le résumé dans la langue cible
+        quizData = await generateQuiz({ summaryText: processedSummaryForOutput });
+    }
+
 
   } catch (error) {
     console.error("Error during AI processing:", error);
@@ -103,22 +119,20 @@ export async function generateSummaryAction(
     throw new Error(errorMessage);
   }
 
-  // Adapt baseSummary to the selected outputFormat
+  // Adapt baseSummary (qui peut être en HTML pour PDF, ou texte simple pour autres) to the selected outputFormat
   if (outputFormat === 'resume') {
-    // For PDF, if it's a simulation, we ensure the baseSummary (which includes the disclaimer) is used.
-    // Otherwise, for text/youtube, it's the direct (potentially translated) summary.
-    const contentForResume = baseSummary; 
+    const contentForResume = (inputType === 'pdf' ? baseSummary : processedSummaryForOutput.replace(/\n/g, '<br/>'));
     return {
       title: `Résumé - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📋 Points clés principaux :</h4>
-        <p>${contentForResume.replace(/\n/g, '<br/>')}</p>
+        <p>${contentForResume}</p>
         <h4 style="font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">🎯 Conclusion :</h4>
         <p>Cette synthèse a été générée et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis du contenu original.</p>
-      `
+      `,
     };
   } else if (outputFormat === 'fiche') {
-    const contentForFiche = baseSummary;
+    const contentForFiche = (inputType === 'pdf' ? baseSummary : processedSummaryForOutput.replace(/\n/g, '<br/>'));
     return {
       title: `Fiche de révision - ${sourceName}${translatedLabel}`,
       content: `
@@ -128,44 +142,28 @@ export async function generateSummaryAction(
             <p><strong>Innovation • Méthodologie • Optimisation • Performance</strong> (Ces mots seraient extraits dynamiquement dans une version avancée)</p>
         </div>
         <h5 style="font-weight: bold;">📖 CONTENU PRINCIPAL</h5>
-        <p>${contentForFiche.replace(/\n/g, '<br/>')}</p>
+        <p>${contentForFiche}</p>
         <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
             <h5 style="font-weight: bold;">💡 À RETENIR (Exemple)</h5>
-            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début du résumé : ${contentForFiche.substring(0, 100)}...].</p>
+            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début du résumé : ${processedSummaryForOutput.substring(0, 100)}...].</p>
         </div>
       `
     };
   } else if (outputFormat === 'qcm') {
-    const contentForQCM = baseSummary;
+     const contentForQCMContext = (inputType === 'pdf' ? baseSummary : processedSummaryForOutput.replace(/\n/g, '<br/>'));
     return {
       title: `QCM - ${sourceName}${translatedLabel}`,
       content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">❓ QUESTIONNAIRE D'ÉVALUATION (Exemple)</h4>
-        <p><strong>Résumé de base pour contexte:</strong><br/>${contentForQCM.replace(/\n/g, '<br/>')}</p>
-        
-        <div id="qcm-container">
-          <div class="qcm-question-block" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
-              <h5 style="font-weight: bold;">Question 1 : Quel est le thème principal abordé dans le résumé ?</h5>
-              <div style="margin: 0.5rem 0;">
-                  <label><input type="radio" name="q1" value="q1a"/> A) Un sujet non pertinent</label><br/>
-                  <label><input type="radio" name="q1" value="q1b"/> B) Le thème central du résumé fourni</label><br/>
-                  <label><input type="radio" name="q1" value="q1c"/> C) Un détail mineur</label>
-              </div>
-          </div>
-           <div class="qcm-question-block" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
-              <h5 style="font-weight: bold;">Question 2 : L'IA a-t-elle généré ce résumé ?</h5>
-              <div style="margin: 0.5rem 0;">
-                  <label><input type="radio" name="q2" value="q2a"/> A) Oui</label><br/>
-                  <label><input type="radio" name="q2" value="q2b"/> B) Non</label>
-              </div>
-          </div>
+        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📝 Contexte du QCM (basé sur le résumé) :</h4>
+        <div style="background: #f9f9f9; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-height: 200px; overflow-y: auto;">
+         <p>${contentForQCMContext}</p>
         </div>
-        <button id="check-qcm-answers-button" class="action-btn btn-primary">Vérifier mes réponses</button>
-        <p id="qcm-result-text" style="margin-top: 1rem; font-weight: bold;"></p>
-      `
+        <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances :</h4>
+      `, // Le QCM lui-même sera rendu par le client à partir de quizData
+      quizData: quizData,
     };
   } else if (outputFormat === 'audio') {
-    const contentForAudio = baseSummary;
+    const contentForAudio = (inputType === 'pdf' ? baseSummary : processedSummaryForOutput.replace(/\n/g, '<br/>'));
     return {
       title: `Version Audio - ${sourceName}${translatedLabel}`,
       content: `
@@ -173,12 +171,11 @@ export async function generateSummaryAction(
         <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale.</p>
         <p>Contenu textuel du résumé :</p>
         <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
-          ${contentForAudio.replace(/\n/g, '<br/>')}
+          ${contentForAudio}
         </blockquote>
       `
     };
   }
 
-  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: baseSummary.replace(/\n/g, '<br/>') };
+  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: processedSummaryForOutput.replace(/\n/g, '<br/>') };
 }
-
