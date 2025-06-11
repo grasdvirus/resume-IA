@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle } from 'lucide-react';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper } from 'lucide-react';
 import { generateSummaryAction, type SummaryResult } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -260,6 +260,7 @@ export function SummarizerClientWrapper() {
         await navigator.share(shareData);
         toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
       } catch (err) {
+        // Silently fail or show a specific toast if share is cancelled by user
         // toast({ title: "Erreur de partage", description: "Le partage a été annulé ou a échoué.", variant: "destructive" });
       }
     } else {
@@ -321,15 +322,26 @@ export function SummarizerClientWrapper() {
   useEffect(() => {
     if (summaryResult && selectedOutputFormat === 'qcm' && typeof window !== 'undefined') {
       const checkAnswersButton = document.querySelector('#qcm-form + button.action-btn');
-      if (checkAnswersButton && !(checkAnswersButton as any).listenerAttached) {
+      if (checkAnswersButton) {
         const qcmResultEl = document.getElementById('qcm-result');
-        (checkAnswersButton as any).listenerAttached = true; 
-        checkAnswersButton.addEventListener('click', () => {
+        
+        // Store the handler in a ref to be able to remove it later if needed, or ensure it's only attached once
+        const clickHandler = () => {
           if (qcmResultEl) {
             qcmResultEl.textContent = 'Vérification des réponses simulée. Dans une vraie application, les réponses seraient validées ici.';
             toast({title: "QCM", description: "Vérification simulée des réponses."});
           }
-        });
+        };
+
+        // Simple way to avoid re-adding: remove before adding if it might exist from a previous render
+        // This is still not purely React-way, but less prone to multiple listeners than just adding.
+        // A more robust solution would involve React refs for elements and managing listeners in cleanup.
+        const buttonElement = checkAnswersButton as HTMLButtonElement & { _clickHandler?: () => void };
+        if (buttonElement._clickHandler) {
+            buttonElement.removeEventListener('click', buttonElement._clickHandler);
+        }
+        buttonElement.addEventListener('click', clickHandler);
+        buttonElement._clickHandler = clickHandler; // Store for potential removal
       }
     }
   }, [summaryResult, selectedOutputFormat, toast]);
@@ -391,7 +403,7 @@ export function SummarizerClientWrapper() {
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <OptionCard icon="📋" title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={setSelectedOutputFormat} />
+                  <OptionCard icon={<Newspaper />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={setSelectedOutputFormat} />
                   <OptionCard icon={<ListChecks />} title="QCM" description="Questions de révision" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={setSelectedOutputFormat} />
