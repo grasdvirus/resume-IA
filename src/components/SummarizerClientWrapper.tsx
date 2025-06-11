@@ -125,6 +125,7 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
+      currentInputType = 'pdf'; // Ensure correct type for action
       currentInputValue = pdfFile.name; // Pass filename for mock processing
     } else if (activeTab === "video") {
       if (!videoUrl.trim()) {
@@ -132,6 +133,7 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
+      currentInputType = 'youtube'; // Ensure correct type for action
       currentInputValue = videoUrl;
     } else if (activeTab === "text") {
       if (!inputText.trim()) {
@@ -144,6 +146,7 @@ export function SummarizerClientWrapper() {
          setIsProcessing(false);
          return;
       }
+      currentInputType = 'text'; // Ensure correct type for action
       currentInputValue = inputText;
     }
 
@@ -171,53 +174,61 @@ export function SummarizerClientWrapper() {
     }
   };
 
-  const downloadResult = () => {
-    if (!summaryResult || !summaryResult.content) return;
+  const getPlainTextFromResult = () => {
+    if (!summaryResult || !summaryResult.content) return "";
     const tempEl = document.createElement('div');
     tempEl.innerHTML = summaryResult.content;
-    const textContent = tempEl.textContent || tempEl.innerText || "";
+    return tempEl.textContent || tempEl.innerText || "";
+  }
+
+  const downloadResult = () => {
+    const textContent = getPlainTextFromResult();
+    if (!textContent) return;
     
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resume-${selectedOutputFormat}-${selectedLanguage}-${Date.now()}.txt`;
+    const safeTitle = (summaryResult?.title || 'resume').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    a.download = `${safeTitle}_${selectedOutputFormat}_${selectedLanguage}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ title: "Téléchargé", description: "Le résumé a été téléchargé." });
+    toast({ title: "Téléchargement réussi", description: "Le résumé a été téléchargé au format .txt." });
   };
 
   const shareResult = async () => {
-    if (!summaryResult || !summaryResult.content) return;
-    const tempEl = document.createElement('div');
-    tempEl.innerHTML = summaryResult.content;
-    const textContent = tempEl.textContent || tempEl.innerText || "";
+    const textContent = getPlainTextFromResult();
+    if (!textContent) return;
 
-    if (navigator.share) {
+    const shareData = {
+      title: summaryResult?.title || 'Résumé IA',
+      text: textContent,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
-        await navigator.share({
-          title: summaryResult.title || 'Mon résumé IA',
-          text: textContent.substring(0, 200) + '...',
-        });
-        toast({ title: "Partagé", description: "Résumé partagé avec succès." });
+        await navigator.share(shareData);
+        toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
       } catch (err) {
-        toast({ title: "Erreur de partage", description: "Impossible de partager le résumé.", variant: "destructive" });
+        // If sharing fails, or is cancelled, do nothing or log error
+        // console.error("Share failed:", err);
+        // toast({ title: "Erreur de partage", description: "Le partage a été annulé ou a échoué.", variant: "destructive" });
       }
     } else {
       try {
         await navigator.clipboard.writeText(textContent);
-        toast({ title: "Copié", description: "Résumé copié dans le presse-papiers!" });
+        toast({ title: "Copié dans le presse-papiers", description: "Le résumé a été copié. Vous pouvez le coller où vous voulez." });
       } catch (err) {
-        toast({ title: "Erreur de copie", description: "Impossible de copier le résumé.", variant: "destructive" });
+        toast({ title: "Erreur de copie", description: "Impossible de copier le résumé dans le presse-papiers.", variant: "destructive" });
       }
     }
   };
   
   useEffect(() => {
     if (summaryResult && selectedOutputFormat === 'qcm' && typeof window !== 'undefined') {
-      const checkAnswersButton = document.querySelector('#qcm-form + button');
+      const checkAnswersButton = document.querySelector('#qcm-form + button.action-btn');
       if (checkAnswersButton && !(checkAnswersButton as any).listenerAttached) {
         const qcmResultEl = document.getElementById('qcm-result');
         (checkAnswersButton as any).listenerAttached = true; 
@@ -341,10 +352,10 @@ export function SummarizerClientWrapper() {
                 <CardContent className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none p-6 result-content-area" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
               </Card>
               <div className="flex flex-wrap gap-4 justify-center">
-                <Button onClick={downloadResult} variant="outlinePrimary" className="bg-primary text-primary-foreground hover:bg-primary/90"><Download className="mr-2 h-5 w-5" />Télécharger</Button>
+                <Button onClick={downloadResult} variant="default"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
                 <Button onClick={shareResult} variant="outline" className="text-foreground"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
-                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "L'export PDF sera bientôt disponible."})} variant="outline" className="text-foreground"><FileText className="mr-2 h-5 w-5" />Export PDF</Button>
-                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "La version audio sera bientôt disponible."})} variant="outline" className="text-foreground"><AudioWaveform className="mr-2 h-5 w-5" />Version audio</Button>
+                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "L'export PDF sera bientôt disponible. En attendant, vous pouvez télécharger le résumé en .txt."})} variant="outline" className="text-foreground"><FileText className="mr-2 h-5 w-5" />Export PDF</Button>
+                <Button onClick={() => toast({ title: "Fonctionnalité en développement", description: "La lecture audio du résumé sera bientôt disponible."})} variant="outline" className="text-foreground"><AudioWaveform className="mr-2 h-5 w-5" />Version audio</Button>
                 <Button onClick={handleNewSummary} variant="secondary"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
               </div>
             </div>

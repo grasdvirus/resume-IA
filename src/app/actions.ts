@@ -13,16 +13,20 @@ export interface SummaryResult {
 }
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
+export type InputType = z.infer<typeof InputTypeSchema>;
+
 const OutputFormatSchema = z.enum(['resume', 'fiche', 'qcm', 'audio']);
+export type OutputFormat = z.infer<typeof OutputFormatSchema>;
+
 const TargetLanguageSchema = z.enum(['fr', 'en', 'es']);
 export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
 
 
 // This function will be called from the client component
 export async function generateSummaryAction(
-  inputType: z.infer<typeof InputTypeSchema>,
+  inputType: InputType,
   inputValue: string, // text content, youtube URL, or PDF file name (for mock)
-  outputFormat: z.infer<typeof OutputFormatSchema>,
+  outputFormat: OutputFormat,
   targetLanguage: TargetLanguage
 ): Promise<SummaryResult> {
   let baseSummary = '';
@@ -128,13 +132,16 @@ export async function generateSummaryAction(
       title: `Version Audio - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio (Simulation)</h4>
-        <p>La génération audio pour le résumé est une fonctionnalité en cours de développement.</p>
-        <p><strong>Contenu du résumé qui serait lu :</strong><br/>${baseSummary.replace(/\n/g, '<br/>')}</p>
-        <p><em>Imaginez ici un lecteur audio intégré.</em></p>
+        <p>La génération d'une version audio de ce résumé est une fonctionnalité qui sera bientôt disponible.</p>
+        <p>En attendant, voici le contenu textuel du résumé :</p>
+        <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
+          ${baseSummary.replace(/\n/g, '<br/>')}
+        </blockquote>
+        <p style="margin-top: 1em;"><em>Imaginez ici un lecteur audio intégré pour écouter ce texte.</em></p>
       `
     };
   }
 
-  return { title: `Résumé Inconnu - ${sourceName}${translatedLabel}`, content: baseSummary.replace(/\n/g, '<br/>') };
+  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: baseSummary.replace(/\n/g, '<br/>') };
 }
 
