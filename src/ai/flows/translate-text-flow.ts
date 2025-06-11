@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {TargetLanguage} from '@/app/actions'; // Assuming TargetLanguage type is exported from actions
+import type {TargetLanguage} from '@/app/actions'; // Utilisation de import type
 
 const TranslateTextInputSchema = z.object({
   textToTranslate: z.string().describe('The text to translate.'),
