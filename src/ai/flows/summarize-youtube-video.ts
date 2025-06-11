@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'summarizeYouTubeVideoPrompt',
   input: {schema: SummarizeYouTubeVideoInputSchema},
   output: {schema: SummarizeYouTubeVideoOutputSchema},
-  prompt: `You are an expert summarizer of YouTube videos.  Given a YouTube video URL, you will summarize the video.
+  prompt: `You are an expert summarizer of YouTube videos. Given a YouTube video URL, you will summarize the video in French.
 
 YouTube Video URL: {{{youtubeVideoUrl}}}`,
 });
@@ -46,3 +46,4 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     return output!;
   }
 );
+
