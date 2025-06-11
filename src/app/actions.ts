@@ -35,6 +35,7 @@ export async function generateSummaryAction(
   let sourceName = '';
   let translatedLabel = "";
   let quizData: QuizData | undefined = undefined;
+  let processedSummaryForOutput: string; // Déclaration déplacée ici
 
   try {
     if (inputType === 'text') {
@@ -72,33 +73,29 @@ export async function generateSummaryAction(
       </p>`;
     }
 
-    let summaryForProcessing = baseSummary; // Ce sera le texte utilisé pour la traduction ou la génération de QCM
+    let summaryForProcessing = baseSummary; 
 
-    // Pour les PDF simulés, nous ne voulons pas traduire ni générer de QCM sur la note de démo entière.
-    // Nous utilisons la partie "exemple" du contenu.
     if (inputType === 'pdf') {
         const exampleMarker = "Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :";
         const exampleContentIndex = baseSummary.indexOf(exampleMarker);
         if (exampleContentIndex !== -1) {
-            summaryForProcessing = baseSummary.substring(exampleContentIndex + exampleMarker.length).replace(/<[^>]+>/g, ''); // Strip HTML tags for AI processing
+            summaryForProcessing = baseSummary.substring(exampleContentIndex + exampleMarker.length).replace(/<[^>]+>/g, ''); 
         } else {
-            summaryForProcessing = baseSummary.replace(/<[^>]+>/g, ''); // Strip HTML tags
+            summaryForProcessing = baseSummary.replace(/<[^>]+>/g, ''); 
         }
     }
 
-
-    // Translate summary if target language is not French (original summary is French)
-    let processedSummaryForOutput = summaryForProcessing; // Ce sera le résumé affiché ou utilisé pour le QCM
+    processedSummaryForOutput = summaryForProcessing; // Initialisation après que summaryForProcessing soit défini
 
     if (targetLanguage !== 'fr' && summaryForProcessing) {
       const translationResult = await translateText({ textToTranslate: summaryForProcessing, targetLanguage: targetLanguage });
       processedSummaryForOutput = translationResult.translatedText;
 
-      if (inputType === 'pdf') { // Si c'est un PDF, on garde le disclaimer original non traduit
+      if (inputType === 'pdf') { 
         const disclaimerPart = baseSummary.substring(0, baseSummary.indexOf(summaryForProcessing));
-        baseSummary = disclaimerPart + processedSummaryForOutput; // baseSummary devient la version html avec le résumé traduit
+        baseSummary = disclaimerPart + processedSummaryForOutput; 
       } else {
-        baseSummary = processedSummaryForOutput; // Pour texte/youtube, baseSummary est directement le résumé traduit
+        baseSummary = processedSummaryForOutput; 
       }
 
       if (targetLanguage === 'en') translatedLabel = " (Translated to English)";
@@ -106,9 +103,7 @@ export async function generateSummaryAction(
     }
 
 
-    // Generate QCM if selected
     if (outputFormat === 'qcm') {
-        // Le QCM doit être généré sur le résumé dans la langue cible
         quizData = await generateQuiz({ summaryText: processedSummaryForOutput });
     }
 
@@ -119,7 +114,6 @@ export async function generateSummaryAction(
     throw new Error(errorMessage);
   }
 
-  // Adapt baseSummary (qui peut être en HTML pour PDF, ou texte simple pour autres) to the selected outputFormat
   if (outputFormat === 'resume') {
     const contentForResume = (inputType === 'pdf' ? baseSummary : processedSummaryForOutput.replace(/\n/g, '<br/>'));
     return {
@@ -159,7 +153,7 @@ export async function generateSummaryAction(
          <p>${contentForQCMContext}</p>
         </div>
         <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances :</h4>
-      `, // Le QCM lui-même sera rendu par le client à partir de quizData
+      `, 
       quizData: quizData,
     };
   } else if (outputFormat === 'audio') {
@@ -177,5 +171,9 @@ export async function generateSummaryAction(
     };
   }
 
+  // Ce return ne devrait théoriquement pas être atteint si outputFormat est toujours valide.
+  // Mais pour éviter les erreurs si processedSummaryForOutput n'était pas initialisé, on s'assure qu'il a une valeur.
+  processedSummaryForOutput = processedSummaryForOutput || ''; 
   return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: processedSummaryForOutput.replace(/\n/g, '<br/>') };
 }
+
