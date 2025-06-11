@@ -48,21 +48,53 @@ export async function generateSummaryAction(
       baseSummary = result.summary;
     } else if (inputType === 'pdf') {
       sourceName = inputValue; // filename
-      baseSummary = `Ceci est un résumé simulé pour le fichier PDF : ${inputValue}. 
-      Dans une application réelle, le contenu textuel du PDF serait extrait et analysé par l'IA. 
-      Ce résumé fictif met en évidence les points clés typiques qu'une IA pourrait identifier, tels que l'objectif principal du document, les méthodologies employées, les résultats obtenus et les conclusions principales.
-      Des sections spécifiques pourraient inclure:
-      - Introduction et Contexte
-      - Méthodes et Approches
-      - Découvertes et Analyses
-      - Conclusion et Recommandations
-      L'IA s'efforcerait de fournir une synthèse concise et pertinente.`;
+      baseSummary = `
+      <p style="background-color: #fff9c4; border-left: 4px solid #ffeb3b; padding: 1em; margin-bottom: 1em;">
+        <strong>Note Importante : Ceci est une DÉMONSTRATION du traitement des PDF.</strong><br/>
+        Actuellement, le contenu du fichier PDF <em>${inputValue}</em> n'est pas lu ni analysé. Le résumé ci-dessous est un exemple générique.
+      </p>
+      <p>
+        Pour une fonctionnalité complète, il faudrait mettre en place un système d'extraction de texte à partir du fichier PDF. Ce texte serait ensuite envoyé à l'intelligence artificielle pour être résumé.
+      </p>
+      <p><strong>Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :</strong></p>
+      <p>
+        Ce résumé fictif met en évidence les points clés typiques qu'une IA pourrait identifier, tels que l'objectif principal du document, les méthodologies employées, les résultats obtenus et les conclusions principales.
+        Des sections spécifiques pourraient inclure:
+      </p>
+      <ul>
+        <li>Introduction et Contexte du document</li>
+        <li>Méthodes et Approches utilisées</li>
+        <li>Découvertes et Analyses principales</li>
+        <li>Conclusion et Recommandations du document</li>
+      </ul>
+      <p>
+        L'IA s'efforcerait de fournir une synthèse concise et pertinente basée sur le contenu réel du PDF.
+      </p>`;
     }
 
     // Translate summary if target language is not French (assuming original summary is French)
     if (targetLanguage !== 'fr' && baseSummary) {
-      const translationResult = await translateText({ textToTranslate: baseSummary, targetLanguage: targetLanguage });
-      baseSummary = translationResult.translatedText;
+      // For PDF simulation, we also "translate" the generic content.
+      // For real summaries, this would translate the actual AI-generated summary.
+      let textToTranslateForSummary = baseSummary;
+      if (inputType === 'pdf') {
+        // Extract only the "example" part for translation to avoid re-translating the disclaimer.
+        const exampleMarker = "Exemple de ce qu'un résumé d'IA pourrait contenir pour un PDF :";
+        const exampleContentIndex = baseSummary.indexOf(exampleMarker);
+        if (exampleContentIndex !== -1) {
+            textToTranslateForSummary = baseSummary.substring(exampleContentIndex + exampleMarker.length);
+        }
+      }
+      
+      const translationResult = await translateText({ textToTranslate: textToTranslateForSummary, targetLanguage: targetLanguage });
+      
+      if (inputType === 'pdf') {
+        const disclaimerPart = baseSummary.substring(0, baseSummary.indexOf(exampleMarker) + exampleMarker.length);
+        baseSummary = disclaimerPart + translationResult.translatedText;
+      } else {
+        baseSummary = translationResult.translatedText;
+      }
+
       if (targetLanguage === 'en') translatedLabel = " (Translated to English)";
       if (targetLanguage === 'es') translatedLabel = " (Traducido al Español)";
     }
@@ -75,16 +107,20 @@ export async function generateSummaryAction(
 
   // Adapt baseSummary to the selected outputFormat
   if (outputFormat === 'resume') {
+    // For PDF, if it's a simulation, we ensure the baseSummary (which includes the disclaimer) is used.
+    // Otherwise, for text/youtube, it's the direct (potentially translated) summary.
+    const contentForResume = baseSummary; 
     return {
       title: `Résumé - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📋 Points clés principaux :</h4>
-        <p>${baseSummary.replace(/\n/g, '<br/>')}</p>
+        <p>${contentForResume.replace(/\n/g, '<br/>')}</p>
         <h4 style="font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">🎯 Conclusion :</h4>
         <p>Cette synthèse a été générée et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis du contenu original.</p>
       `
     };
   } else if (outputFormat === 'fiche') {
+    const contentForFiche = baseSummary;
     return {
       title: `Fiche de révision - ${sourceName}${translatedLabel}`,
       content: `
@@ -94,19 +130,20 @@ export async function generateSummaryAction(
             <p><strong>Innovation • Méthodologie • Optimisation • Performance</strong> (Ces mots seraient extraits dynamiquement dans une version avancée)</p>
         </div>
         <h5 style="font-weight: bold;">📖 CONTENU PRINCIPAL</h5>
-        <p>${baseSummary.replace(/\n/g, '<br/>')}</p>
+        <p>${contentForFiche.replace(/\n/g, '<br/>')}</p>
         <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
             <h5 style="font-weight: bold;">💡 À RETENIR (Exemple)</h5>
-            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début du résumé : ${baseSummary.substring(0, 100)}...].</p>
+            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début du résumé : ${contentForFiche.substring(0, 100)}...].</p>
         </div>
       `
     };
   } else if (outputFormat === 'qcm') {
+    const contentForQCM = baseSummary;
     return {
       title: `QCM - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">❓ QUESTIONNAIRE D'ÉVALUATION (Exemple)</h4>
-        <p><strong>Résumé de base pour contexte:</strong><br/>${baseSummary.replace(/\n/g, '<br/>')}</p>
+        <p><strong>Résumé de base pour contexte:</strong><br/>${contentForQCM.replace(/\n/g, '<br/>')}</p>
         
         <div id="qcm-form" style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 8px;">
             <h5 style="font-weight: bold;">Question 1 : Quel est le thème principal abordé dans le résumé ?</h5>
@@ -128,16 +165,16 @@ export async function generateSummaryAction(
       `
     };
   } else if (outputFormat === 'audio') {
+    const contentForAudio = baseSummary;
     return {
       title: `Version Audio - ${sourceName}${translatedLabel}`,
       content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio (Simulation)</h4>
-        <p>La génération d'une version audio de ce résumé est une fonctionnalité qui sera bientôt disponible.</p>
-        <p>En attendant, voici le contenu textuel du résumé :</p>
+        <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio</h4>
+        <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale.</p>
+        <p>Contenu textuel du résumé :</p>
         <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
-          ${baseSummary.replace(/\n/g, '<br/>')}
+          ${contentForAudio.replace(/\n/g, '<br/>')}
         </blockquote>
-        <p style="margin-top: 1em;"><em>Imaginez ici un lecteur audio intégré pour écouter ce texte.</em></p>
       `
     };
   }
