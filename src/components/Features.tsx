@@ -4,6 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Target, Shuffle, Smartphone, Languages, QrCode } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { cn } from "@/lib/utils";
 
 const featuresData = [
   {
@@ -45,7 +46,6 @@ export function Features() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const siteUrl = window.location.origin;
-      // Ensure the URL is properly encoded for the QR code API
       setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(siteUrl)}`);
     }
   }, []);
@@ -56,9 +56,20 @@ export function Features() {
         <h2 className="text-3xl md:text-4xl font-bold font-headline text-center mb-12">
           Pourquoi choisir Résumé IA ?
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Conteneur modifié pour le défilement horizontal sur mobile */}
+        <div className={cn(
+          "flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10", // Mobile: flex, défilement horizontal
+          "md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0 md:pb-0 md:overflow-x-visible" // Tablette et plus: grille
+        )}>
           {featuresData.map((feature, index) => (
-            <Card key={index} className="text-center shadow-lg hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1 flex flex-col">
+            <Card 
+              key={index} 
+              className={cn(
+                "flex-shrink-0 w-[280px] sm:w-[300px]", // Largeur fixe pour les cartes en mode défilement
+                "md:w-auto", // Largeur auto pour la grille
+                "text-center shadow-lg hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1 flex flex-col"
+              )}
+            >
               <CardHeader>
                 <div className="flex justify-center mb-4">{feature.icon}</div>
                 <CardTitle className="text-2xl font-headline">{feature.title}</CardTitle>
@@ -80,6 +91,28 @@ export function Features() {
           ))}
         </div>
       </div>
+      {/* Style pour la barre de défilement (optionnel mais améliore l'apparence) */}
+      <style jsx global>{`
+        .scrollbar-thin {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--primary) / 0.1);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          height: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: hsl(var(--primary) / 0.1);
+          border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background-color: hsl(var(--primary) / 0.5);
+          border-radius: 10px;
+          border: 2px solid hsl(var(--primary) / 0.1);
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background-color: hsl(var(--primary) / 0.7);
+        }
+      `}</style>
     </section>
   );
 }
