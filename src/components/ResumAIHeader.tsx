@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Brain, LogOut, UserCircle, LogIn, Menu } from 'lucide-react'; 
+import { Brain, LogOut, UserCircle, LogIn, Menu, User, Settings, FolderArchive, MessageSquare } from 'lucide-react'; 
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,15 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 export function ResumAIHeader() {
   const [contactEmail, setContactEmail] = useState("");
@@ -53,24 +62,31 @@ export function ResumAIHeader() {
     try {
       await signOut();
       toast({ title: "Déconnexion réussie", description: "Vous avez été déconnecté." });
-      setIsMobileMenuOpen(false);
+      setIsMobileMenuOpen(false); // Close mobile menu on sign out
     } catch (error) {
       toast({ title: "Erreur de déconnexion", description: "Une erreur est survenue.", variant: "destructive" });
     }
   };
 
+  const navLinkClasses = (isMobile: boolean) => 
+    `block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border text-base' : 'text-sm'}`;
+  
+  const buttonLinkClasses = (isMobile: boolean) =>
+    `w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border text-base' : 'text-sm'}`;
+
+
   const commonNavLinks = (isMobile = false) => (
     <>
       <li>
-        <a href="/#accueil" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Accueil</a>
+        <Link href="/" className={navLinkClasses(isMobile)} onClick={() => setIsMobileMenuOpen(false)}>Accueil</Link>
       </li>
       <li>
-        <a href="/#fonctionnalites" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Fonctionnalités</a>
+        <Link href="/#fonctionnalites" className={navLinkClasses(isMobile)} onClick={() => setIsMobileMenuOpen(false)}>Fonctionnalités</Link>
       </li>
       <li>
         <Dialog>
           <DialogTrigger asChild>
-            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`}>Tarifs</button>
+            <button className={buttonLinkClasses(isMobile)}>Tarifs</button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -97,7 +113,7 @@ export function ResumAIHeader() {
       <li>
         <Dialog>
           <DialogTrigger asChild>
-            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? '' : ''}`}>Contact & Avis</button>
+            <button className={buttonLinkClasses(isMobile).replace(isMobile ? 'border-b border-border' : '', '')}>Contact & Avis</button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -153,43 +169,90 @@ export function ResumAIHeader() {
   const authLinks = (isMobile = false) => (
     <>
       {!loading && user ? (
-        <>
-          <li className={`flex items-center gap-2 text-sm text-muted-foreground ${isMobile ? 'py-2 px-3 border-b border-border' : ''}`}>
-            <UserCircle className="h-5 w-5"/>
-            <span className={isMobile ? '' : 'hidden lg:inline'}>{user.email}</span>
-          </li>
-          <li>
-            <Button variant="ghost" size={isMobile ? "default" : "sm"} onClick={handleSignOut} className={`w-full text-foreground hover:text-primary hover:bg-primary/10 ${isMobile ? 'justify-start py-2 px-3' : ''}`}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Déconnexion
-            </Button>
-          </li>
-        </>
+        isMobile ? (
+          <>
+            <li className={`py-2 px-3 border-b border-border text-base`}>
+              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <User className="mr-2 h-5 w-5"/> Profil
+              </Link>
+            </li>
+            <li className={`py-2 px-3 border-b border-border text-sm text-muted-foreground`}>
+              Connecté: {user.displayName || user.email}
+            </li>
+            <li>
+              <Button variant="ghost" size="default" onClick={handleSignOut} className={`w-full text-foreground hover:text-primary hover:bg-primary/10 justify-start py-2 px-3 text-base`}>
+                <LogOut className="mr-2 h-5 w-5" />
+                Déconnexion
+              </Button>
+            </li>
+          </>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="rounded-full p-2 h-auto">
+                 <UserCircle className="h-7 w-7 text-primary" />
+                 <span className="sr-only">Menu utilisateur</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.displayName || "Utilisateur"}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Profil
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" disabled>
+                <Settings className="mr-2 h-4 w-4" />
+                Paramètres (bientôt)
+              </DropdownMenuItem>
+               <DropdownMenuItem className="cursor-pointer" disabled>
+                <FolderArchive className="mr-2 h-4 w-4" />
+                Mes Résumés (bientôt)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                Déconnexion
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
       ) : !loading && !user ? (
         <>
           <li className={isMobile ? 'border-b border-border' : ''}>
-            <Link href="/signin" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium flex items-center hover:bg-primary/10 rounded-md ${isMobile ? '' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <Link href="/signin" className={navLinkClasses(isMobile)} onClick={() => setIsMobileMenuOpen(false)}>
               <LogIn className="mr-2 h-4 w-4" /> Se connecter
             </Link>
           </li>
           <li>
-            <Link href="/signup" className={isMobile ? 'block py-2 px-3' : ''} onClick={() => setIsMobileMenuOpen(false)}>
+            <Link href="/signup" className={isMobile ? `block py-2 px-3 text-base` : ''} onClick={() => setIsMobileMenuOpen(false)}>
               <Button 
                 variant="default" 
-                size={isMobile ? "default" : "sm"} 
+                size={isMobile ? "lg" : "sm"} 
                 className={cn(
                   "bg-gradient-to-r from-primary to-purple-600 text-primary-foreground",
                   "hover:from-primary/90 hover:to-purple-500",
-                  "transition-all duration-300 ease-in-out",
-                  isMobile ? 'w-full' : ''
+                  "transition-all duration-300 ease-in-out font-medium",
+                  isMobile ? 'w-full text-base py-3' : ''
                 )}
               >
-                 S'inscrire
+                 S'inscrire Gratuitement
               </Button>
             </Link>
           </li>
         </>
-      ) : null}
+      ) : (
+        <li><Loader2 className="h-6 w-6 animate-spin text-primary" /></li>
+      )}
     </>
   );
 
@@ -202,11 +265,18 @@ export function ResumAIHeader() {
           <span className="text-2xl font-bold font-headline">Résumé IA</span>
         </Link>
 
-        <ul className="hidden md:flex items-center gap-x-2 lg:gap-x-3">
-          {commonNavLinks()}
-          {authLinks()}
-        </ul>
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-1">
+            <ul className="flex items-center gap-x-1 lg:gap-x-2">
+                {commonNavLinks()}
+            </ul>
+            <div className="h-6 w-px bg-border mx-2 lg:mx-3"></div> {/* Separator */}
+            <ul className="flex items-center gap-x-1 lg:gap-x-2">
+                 {authLinks()}
+            </ul>
+        </div>
         
+        {/* Mobile Navigation Trigger */}
         <div className="md:hidden">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
@@ -215,18 +285,20 @@ export function ResumAIHeader() {
                 <span className="sr-only">Ouvrir le menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0">
+            <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0 flex flex-col">
               <SheetHeader className="p-4 border-b">
                  <SheetTitle className="flex items-center gap-2 text-primary">
                     <Brain className="h-7 w-7" />
                     <span className="text-xl font-bold font-headline">Résumé IA</span>
                  </SheetTitle>
               </SheetHeader>
-              <ul className="flex flex-col py-4 px-2 space-y-1">
-                {commonNavLinks(true)}
-                 <hr className="my-2 mx-1 border-border" />
-                {authLinks(true)}
-              </ul>
+              <div className="flex-grow overflow-y-auto">
+                <ul className="flex flex-col py-4 px-2 space-y-1">
+                  {commonNavLinks(true)}
+                   <hr className="my-2 mx-1 border-border" />
+                  {authLinks(true)}
+                </ul>
+              </div>
             </SheetContent>
           </Sheet>
         </div>
