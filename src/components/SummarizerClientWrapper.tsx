@@ -11,11 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle } from 'lucide-react';
-import { generateSummaryAction, type SummaryResult } from '@/app/actions';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle, Save } from 'lucide-react';
+import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage } from '@/app/actions';
 import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow'; 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
@@ -51,6 +52,7 @@ const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value
 
 
 export function SummarizerClientWrapper() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<InputType>("pdf");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfFileName, setPdfFileName] = useState<string>("");
@@ -70,6 +72,9 @@ export function SummarizerClientWrapper() {
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [showQuizResults, setShowQuizResults] = useState(false);
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [summarySaved, setSummarySaved] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +94,12 @@ export function SummarizerClientWrapper() {
       }
     };
   }, []);
+  
+  // Reset summarySaved when input changes
+  useEffect(() => {
+    setSummarySaved(false);
+  }, [pdfFile, videoUrl, inputText, selectedOutputFormat, selectedLanguage]);
+
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -104,6 +115,7 @@ export function SummarizerClientWrapper() {
       setPdfFile(file);
       setPdfFileName(file.name);
       setError(null);
+      setSummarySaved(false);
     }
   };
 
@@ -124,6 +136,7 @@ export function SummarizerClientWrapper() {
       setPdfFile(file);
       setPdfFileName(file.name);
       setError(null);
+      setSummarySaved(false);
     }
   };
 
@@ -146,13 +159,14 @@ export function SummarizerClientWrapper() {
     setUserAnswers({});
     setQuizScore(null);
     setShowQuizResults(false);
+    setSummarySaved(false);
 
      if (window.speechSynthesis && window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
 
-    let currentInputType = activeTab as 'text' | 'youtube' | 'pdf';
+    let currentInputType = activeTab as ActionInputType;
     let currentInputValue = "";
 
     if (activeTab === "pdf") {
@@ -193,7 +207,12 @@ export function SummarizerClientWrapper() {
     }
 
     try {
-      const result = await generateSummaryAction(currentInputType, currentInputValue, selectedOutputFormat, selectedLanguage);
+      const result = await generateSummaryAction(
+        currentInputType, 
+        currentInputValue, 
+        selectedOutputFormat as ActionOutputFormat, 
+        selectedLanguage as ActionTargetLanguage
+      );
       setSummaryResult(result);
     } catch (e: any) {
       setError(e.message || "Une erreur est survenue.");
@@ -210,10 +229,12 @@ export function SummarizerClientWrapper() {
     setPdfFileName("");
     setVideoUrl("");
     setInputText("");
-    setSelectedLanguage("fr");
+    // setSelectedOutputFormat("resume"); // Optionnel: réinitialiser le format de sortie
+    // setSelectedLanguage("fr"); // Optionnel: réinitialiser la langue
     setUserAnswers({});
     setQuizScore(null);
     setShowQuizResults(false);
+    setSummarySaved(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -222,6 +243,42 @@ export function SummarizerClientWrapper() {
     }
     setIsSpeaking(false);
   };
+
+  const handleSaveSummary = async () => {
+    if (!user || !summaryResult) {
+      toast({ title: "Erreur", description: "Utilisateur non connecté ou pas de résumé à sauvegarder.", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+
+    let currentInputValue = "";
+    if (activeTab === "pdf" && pdfFileName) currentInputValue = pdfFileName;
+    else if (activeTab === "video") currentInputValue = videoUrl;
+    else if (activeTab === "text") currentInputValue = inputText;
+    
+    const summaryToSave: UserSummaryToSave = {
+      userId: user.uid,
+      title: summaryResult.title,
+      content: summaryResult.content,
+      quizData: summaryResult.quizData,
+      inputType: activeTab as ActionInputType,
+      inputValue: currentInputValue,
+      outputFormat: selectedOutputFormat as ActionOutputFormat,
+      targetLanguage: selectedLanguage as ActionTargetLanguage,
+    };
+
+    try {
+      await saveSummaryAction(summaryToSave);
+      toast({ title: "Succès", description: "Résumé sauvegardé avec succès !" });
+      setSummarySaved(true);
+    } catch (error: any) {
+      console.error("Failed to save summary:", error);
+      toast({ title: "Erreur de sauvegarde", description: error.message || "Impossible de sauvegarder le résumé.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   const getPlainTextFromResult = useCallback(() => {
     if (!summaryResult) return "";
@@ -321,7 +378,7 @@ export function SummarizerClientWrapper() {
       
       const newUtterance = new SpeechSynthesisUtterance(textToSpeak);
       const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' };
-      newUtterance.lang = langMap[selectedLanguage] || 'fr-FR';
+      newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
       
       if (utteranceRef.current) {
         utteranceRef.current.removeEventListener('end', () => setIsSpeaking(false));
@@ -369,7 +426,7 @@ export function SummarizerClientWrapper() {
         <CardContent>
           {!summaryResult && !isProcessing && (
             <>
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as InputType)} className="mb-8">
+              <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
                 <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-12 mb-6">
                   <TabsTrigger value="pdf" className="py-3 text-base"><FileText className="mr-2 h-5 w-5" />PDF</TabsTrigger>
                   <TabsTrigger value="video" className="py-3 text-base"><Youtube className="mr-2 h-5 w-5" />Vidéo YouTube</TabsTrigger>
@@ -398,7 +455,7 @@ export function SummarizerClientWrapper() {
                   <Input
                     type="url"
                     value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
+                    onChange={(e) => {setVideoUrl(e.target.value); setSummarySaved(false);}}
                     placeholder="Collez l'URL de votre vidéo YouTube ici..."
                     className="h-12 text-base mb-4"
                   />
@@ -406,7 +463,7 @@ export function SummarizerClientWrapper() {
                 <TabsContent value="text">
                   <Textarea
                     value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
+                    onChange={(e) => {setInputText(e.target.value); setSummarySaved(false);}}
                     placeholder="Collez votre texte ici..."
                     className="min-h-[200px] text-base mb-4"
                   />
@@ -416,10 +473,10 @@ export function SummarizerClientWrapper() {
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={setSelectedOutputFormat} />
-                  <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={setSelectedOutputFormat} />
-                  <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={setSelectedOutputFormat} />
-                  <OptionCard icon={<ListChecks />} title="QCM / Quiz" description="Testez vos connaissances" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={setSelectedOutputFormat} />
+                  <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
+                  <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
+                  <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
+                  <OptionCard icon={<ListChecks />} title="QCM / Quiz" description="Testez vos connaissances" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                 </div>
               </div>
 
@@ -428,7 +485,7 @@ export function SummarizerClientWrapper() {
                   <Languages className="inline-block mr-2 h-6 w-6 align-text-bottom" />
                   Langue de traduction :
                 </h3>
-                <Select value={selectedLanguage} onValueChange={(value) => setSelectedLanguage(value as TargetLanguage)}>
+                <Select value={selectedLanguage} onValueChange={(value) => {setSelectedLanguage(value as TargetLanguage); setSummarySaved(false);}}>
                   <SelectTrigger className="w-full sm:w-[280px] mx-auto h-12 text-base">
                     <SelectValue placeholder="Sélectionnez une langue" />
                   </SelectTrigger>
@@ -535,8 +592,19 @@ export function SummarizerClientWrapper() {
                 </Card>
               )}
 
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Button onClick={downloadResult} variant="default"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
+              <div className="flex flex-wrap gap-3 justify-center">
+                {user && (
+                  <Button 
+                    onClick={handleSaveSummary} 
+                    variant="default" 
+                    className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out"
+                    disabled={isSaving || summarySaved}
+                  >
+                    {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                    {summarySaved ? "Résumé Sauvegardé" : "Sauvegarder ce résumé"}
+                  </Button>
+                )}
+                <Button onClick={downloadResult} variant="outline" className="text-foreground"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
                 <Button onClick={shareResult} variant="outline" className="text-foreground"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
                 <Button onClick={handleExportPdf} variant="outline" className="text-foreground"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
                 <Button onClick={handleToggleAudio} variant="outline" className="text-foreground" disabled={!speechSynthesisSupported}>

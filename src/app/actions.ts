@@ -5,13 +5,15 @@
 import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
-import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow'; // Nouvelle importation
+import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { z } from 'zod';
+import { db } from '@/lib/firebase'; // Import Firestore instance
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export interface SummaryResult {
   title: string;
   content: string; // HTML content or base text for QCM
-  quizData?: QuizData; // Nouveau champ pour les données du quiz
+  quizData?: QuizData;
 }
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
@@ -35,7 +37,7 @@ export async function generateSummaryAction(
   let sourceName = '';
   let translatedLabel = "";
   let quizData: QuizData | undefined = undefined;
-  let processedSummaryForOutput: string; // Déclaration déplacée ici
+  let processedSummaryForOutput: string;
 
   try {
     if (inputType === 'text') {
@@ -85,7 +87,7 @@ export async function generateSummaryAction(
         }
     }
 
-    processedSummaryForOutput = summaryForProcessing; // Initialisation après que summaryForProcessing soit défini
+    processedSummaryForOutput = summaryForProcessing;
 
     if (targetLanguage !== 'fr' && summaryForProcessing) {
       const translationResult = await translateText({ textToTranslate: summaryForProcessing, targetLanguage: targetLanguage });
@@ -171,9 +173,31 @@ export async function generateSummaryAction(
     };
   }
 
-  // Ce return ne devrait théoriquement pas être atteint si outputFormat est toujours valide.
-  // Mais pour éviter les erreurs si processedSummaryForOutput n'était pas initialisé, on s'assure qu'il a une valeur.
   processedSummaryForOutput = processedSummaryForOutput || ''; 
   return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: processedSummaryForOutput.replace(/\n/g, '<br/>') };
 }
 
+export interface UserSummaryToSave {
+  userId: string;
+  title: string;
+  content: string;
+  quizData?: QuizData;
+  inputType: InputType;
+  inputValue: string;
+  outputFormat: OutputFormat;
+  targetLanguage: TargetLanguage;
+}
+
+export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise<{ id: string }> {
+  try {
+    const docRef = await addDoc(collection(db, "summaries"), {
+      ...summaryData,
+      createdAt: serverTimestamp(),
+    });
+    return { id: docRef.id };
+  } catch (error) {
+    console.error("Error saving summary to Firestore:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la sauvegarde du résumé.";
+    throw new Error(`Impossible de sauvegarder le résumé: ${errorMessage}`);
+  }
+}
