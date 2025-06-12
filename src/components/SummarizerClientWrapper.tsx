@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ChangeEvent, DragEvent } from 'react';
@@ -32,8 +33,9 @@ interface OptionCardProps {
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
-      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out hover:border-primary hover:bg-primary/10",
-      selected ? "border-primary bg-primary/10 ring-2 ring-primary" : "border-border"
+      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out",
+      "hover:border-primary hover:bg-gradient-to-br hover:from-primary/15 hover:to-primary/5 hover:shadow-lg hover:scale-[1.03]",
+      selected ? "border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary shadow-xl scale-[1.02]" : "border-border"
     )}
     onClick={() => onSelect(value)}
     role="radio"
@@ -445,7 +447,7 @@ export function SummarizerClientWrapper() {
                 </div>
               )}
 
-              <Button onClick={handleSubmit} size="lg" className="w-full text-lg py-6 font-headline bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:opacity-90">
+              <Button onClick={handleSubmit} size="lg" className="w-full text-lg py-6 font-headline bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:bg-[linear-gradient(60deg,#ff8585,#ff7a45)] hover:scale-[1.03] text-primary-foreground transition-all duration-300 ease-in-out">
                 {isProcessing ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : null}
                 {activeTab === "pdf" ? "Analyser le PDF" : activeTab === "video" ? "Analyser la vidéo" : "Résumer le texte"}
               </Button>
@@ -515,12 +517,17 @@ export function SummarizerClientWrapper() {
                       </div>
                     )}
                     {!showQuizResults && (
-                       <Button onClick={handleCheckQuizAnswers} className="w-full mt-4 action-btn btn-primary" disabled={Object.keys(userAnswers).length !== summaryResult.quizData.questions.length}>
+                       <Button 
+                         onClick={handleCheckQuizAnswers} 
+                         className="w-full mt-4 action-btn bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white transition-all duration-300 ease-in-out" 
+                         disabled={Object.keys(userAnswers).length !== summaryResult.quizData.questions.length}>
                          Vérifier mes réponses
                        </Button>
                     )}
                      {showQuizResults && (
-                       <Button onClick={() => { setUserAnswers({}); setQuizScore(null); setShowQuizResults(false);}} className="w-full mt-4 action-btn btn-secondary">
+                       <Button 
+                         onClick={() => { setUserAnswers({}); setQuizScore(null); setShowQuizResults(false);}} 
+                         className="w-full mt-4 action-btn bg-gradient-to-r from-slate-500 to-gray-600 hover:from-slate-600 hover:to-gray-700 text-white transition-all duration-300 ease-in-out">
                          Rejouer le Quiz
                        </Button>
                     )}
@@ -564,23 +571,8 @@ export function SummarizerClientWrapper() {
             border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
-            transition: all 0.3s ease;
         }
-        .btn-primary {
-            background-color: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-        }
-        .btn-primary:hover {
-            opacity: 0.9;
-        }
-         .btn-secondary {
-            background-color: hsl(var(--secondary));
-            color: hsl(var(--secondary-foreground));
-        }
-        .btn-secondary:hover {
-            opacity: 0.9;
-        }
-
+       
 
         @media print {
           body * {
@@ -618,3 +610,4 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
+

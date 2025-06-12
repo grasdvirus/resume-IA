@@ -1,3 +1,4 @@
+
 export function Hero() {
   return (
     <section id="accueil" className="py-16 md:py-24 text-center text-white bg-[linear-gradient(135deg,theme(colors.primary.DEFAULT)_0%,#764ba2_100%)]">
@@ -10,7 +11,7 @@ export function Hero() {
         </p>
         <a
           href="#upload-section"
-          className="inline-block bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:opacity-90 text-white px-8 py-4 rounded-full text-lg font-bold font-headline transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+          className="inline-block bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:bg-[linear-gradient(60deg,#ff8585,#ff7a45)] hover:scale-[1.03] text-white px-8 py-4 rounded-full text-lg font-bold font-headline transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:-translate-y-1"
         >
           Commencer gratuitement
         </a>
@@ -18,3 +19,4 @@ export function Hero() {
     </section>
   );
 }
+

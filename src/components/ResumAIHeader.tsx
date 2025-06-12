@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -26,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function ResumAIHeader() {
   const [contactEmail, setContactEmail] = useState("");
@@ -172,7 +174,16 @@ export function ResumAIHeader() {
           </li>
           <li>
             <Link href="/signup" className={isMobile ? 'block py-2 px-3' : ''} onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="default" size={isMobile ? "default" : "sm"} className={`bg-primary text-primary-foreground hover:bg-primary/90 ${isMobile ? 'w-full' : ''}`}>
+              <Button 
+                variant="default" 
+                size={isMobile ? "default" : "sm"} 
+                className={cn(
+                  "bg-gradient-to-r from-primary to-purple-600 text-primary-foreground",
+                  "hover:from-primary/90 hover:to-purple-500",
+                  "transition-all duration-300 ease-in-out",
+                  isMobile ? 'w-full' : ''
+                )}
+              >
                  S'inscrire
               </Button>
             </Link>
@@ -223,3 +234,4 @@ export function ResumAIHeader() {
     </header>
   );
 }
+
