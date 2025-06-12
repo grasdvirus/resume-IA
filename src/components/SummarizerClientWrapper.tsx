@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ChangeEvent, DragEvent } from 'react';
@@ -13,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle } from 'lucide-react';
 import { generateSummaryAction, type SummaryResult } from '@/app/actions';
-import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow'; // Import Quiz types
+import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow'; 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 
@@ -33,7 +32,7 @@ interface OptionCardProps {
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
-      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 hover:border-primary hover:bg-primary/10",
+      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out hover:border-primary hover:bg-primary/10",
       selected ? "border-primary bg-primary/10 ring-2 ring-primary" : "border-border"
     )}
     onClick={() => onSelect(value)}
@@ -66,7 +65,6 @@ export function SummarizerClientWrapper() {
   const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // State for QCM
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [showQuizResults, setShowQuizResults] = useState(false);
@@ -228,10 +226,9 @@ export function SummarizerClientWrapper() {
     
     let textToProcess = summaryResult.content;
 
-    // If it's a QCM, the main content for speech should be the context, then the questions.
     if (selectedOutputFormat === 'qcm' && summaryResult.quizData) {
         const quizTextParts: string[] = [];
-        if (summaryResult.content) { // Add context if available
+        if (summaryResult.content) { 
             const tempContextEl = document.createElement('div');
             tempContextEl.innerHTML = summaryResult.content;
             quizTextParts.push((tempContextEl.textContent || tempContextEl.innerText || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
@@ -242,7 +239,6 @@ export function SummarizerClientWrapper() {
         });
         textToProcess = quizTextParts.join('. ');
     } else {
-        // For non-QCM or if quizData is missing, use summaryResult.content
         const tempEl = document.createElement('div');
         tempEl.innerHTML = summaryResult.content;
         tempEl.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(header => {
@@ -344,7 +340,7 @@ export function SummarizerClientWrapper() {
 
   const handleQuizAnswerChange = (questionId: string, answerId: string) => {
     setUserAnswers(prev => ({ ...prev, [questionId]: answerId }));
-    setShowQuizResults(false); // Reset result visibility if user changes an answer
+    setShowQuizResults(false); 
     setQuizScore(null);
   };
 
@@ -364,7 +360,7 @@ export function SummarizerClientWrapper() {
 
   return (
     <section id="upload-section" className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <Card className="shadow-xl">
+      <Card className="shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 ease-in-out">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
         </CardHeader>
@@ -614,7 +610,7 @@ export function SummarizerClientWrapper() {
           .no-print {
             display: none !important;
           }
-          #qcm-questions-container, .flex.flex-wrap.gap-4.justify-center { /* Hide QCM and action buttons during print */
+          #qcm-questions-container, .flex.flex-wrap.gap-4.justify-center { 
             display: none !important;
           }
         }

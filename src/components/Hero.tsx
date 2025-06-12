@@ -2,7 +2,7 @@ export function Hero() {
   return (
     <section id="accueil" className="py-16 md:py-24 text-center text-white bg-[linear-gradient(135deg,theme(colors.primary.DEFAULT)_0%,#764ba2_100%)]">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline mb-6 text-shadow-lg">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline mb-6 text-shadow-lg shadow-black/30 dark:shadow-white/30">
           📚 Résumez tout en quelques secondes
         </h1>
         <p className="text-lg md:text-xl lg:text-2xl mb-10 opacity-90 max-w-3xl mx-auto">

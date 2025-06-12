@@ -1,8 +1,7 @@
-
 "use client";
 
 import Link from 'next/link';
-import { Brain, LogOut, UserCircle, LogIn, Menu } from 'lucide-react'; // Added Menu
+import { Brain, LogOut, UserCircle, LogIn, Menu } from 'lucide-react'; 
 import {
   Dialog,
   DialogContent,
@@ -16,12 +15,10 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet"; // Added Sheet
+} from "@/components/ui/sheet"; 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -63,15 +60,15 @@ export function ResumAIHeader() {
   const commonNavLinks = (isMobile = false) => (
     <>
       <li>
-        <a href="/#accueil" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Accueil</a>
+        <a href="/#accueil" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Accueil</a>
       </li>
       <li>
-        <a href="/#fonctionnalites" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Fonctionnalités</a>
+        <a href="/#fonctionnalites" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Fonctionnalités</a>
       </li>
       <li>
         <Dialog>
           <DialogTrigger asChild>
-            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium ${isMobile ? 'border-b border-border' : ''}`}>Tarifs</button>
+            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? 'border-b border-border' : ''}`}>Tarifs</button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -98,7 +95,7 @@ export function ResumAIHeader() {
       <li>
         <Dialog>
           <DialogTrigger asChild>
-            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium ${isMobile ? '' : ''}`}>Contact & Avis</button>
+            <button className={`block w-full text-left py-2 px-3 text-foreground hover:text-primary transition-colors font-medium hover:bg-primary/10 rounded-md ${isMobile ? '' : ''}`}>Contact & Avis</button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -160,7 +157,7 @@ export function ResumAIHeader() {
             <span className={isMobile ? '' : 'hidden lg:inline'}>{user.email}</span>
           </li>
           <li>
-            <Button variant="ghost" size={isMobile ? "default" : "sm"} onClick={handleSignOut} className={`w-full text-foreground hover:text-primary ${isMobile ? 'justify-start py-2 px-3' : ''}`}>
+            <Button variant="ghost" size={isMobile ? "default" : "sm"} onClick={handleSignOut} className={`w-full text-foreground hover:text-primary hover:bg-primary/10 ${isMobile ? 'justify-start py-2 px-3' : ''}`}>
               <LogOut className="mr-2 h-4 w-4" />
               Déconnexion
             </Button>
@@ -169,7 +166,7 @@ export function ResumAIHeader() {
       ) : !loading && !user ? (
         <>
           <li className={isMobile ? 'border-b border-border' : ''}>
-            <Link href="/signin" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium flex items-center ${isMobile ? '' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+            <Link href="/signin" className={`block py-2 px-3 text-foreground hover:text-primary transition-colors font-medium flex items-center hover:bg-primary/10 rounded-md ${isMobile ? '' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
               <LogIn className="mr-2 h-4 w-4" /> Se connecter
             </Link>
           </li>
@@ -194,13 +191,11 @@ export function ResumAIHeader() {
           <span className="text-2xl font-bold font-headline">Résumé IA</span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <ul className="hidden md:flex items-center gap-x-4 lg:gap-x-6">
+        <ul className="hidden md:flex items-center gap-x-2 lg:gap-x-3">
           {commonNavLinks()}
           {authLinks()}
         </ul>
         
-        {/* Mobile Navigation Trigger */}
         <div className="md:hidden">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
@@ -216,9 +211,9 @@ export function ResumAIHeader() {
                     <span className="text-xl font-bold font-headline">Résumé IA</span>
                  </SheetTitle>
               </SheetHeader>
-              <ul className="flex flex-col py-4">
+              <ul className="flex flex-col py-4 px-2 space-y-1">
                 {commonNavLinks(true)}
-                 <hr className="my-2 mx-3 border-border" />
+                 <hr className="my-2 mx-1 border-border" />
                 {authLinks(true)}
               </ul>
             </SheetContent>

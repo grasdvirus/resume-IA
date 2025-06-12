@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,21 +52,20 @@ export function Features() {
   return (
     <section id="fonctionnalites" className="py-16 md:py-24 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl md:text-4xl font-bold font-headline text-center mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold font-headline text-center mb-12 text-shadow shadow-black/20 dark:shadow-white/20">
           Pourquoi choisir Résumé IA ?
         </h2>
-        {/* Conteneur modifié pour le défilement horizontal sur mobile */}
         <div className={cn(
-          "flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10", // Mobile: flex, défilement horizontal
-          "md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0 md:pb-0 md:overflow-x-visible" // Tablette et plus: grille
+          "flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10", 
+          "md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0 md:pb-0 md:overflow-x-visible"
         )}>
           {featuresData.map((feature, index) => (
             <Card 
               key={index} 
               className={cn(
-                "flex-shrink-0 w-[280px] sm:w-[300px]", // Largeur fixe pour les cartes en mode défilement
-                "md:w-auto", // Largeur auto pour la grille
-                "text-center shadow-lg hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1 flex flex-col"
+                "flex-shrink-0 w-[280px] sm:w-[300px]", 
+                "md:w-auto", 
+                "text-center shadow-lg hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex flex-col"
               )}
             >
               <CardHeader>
@@ -91,7 +89,6 @@ export function Features() {
           ))}
         </div>
       </div>
-      {/* Style pour la barre de défilement (optionnel mais améliore l'apparence) */}
       <style jsx global>{`
         .scrollbar-thin {
           scrollbar-width: thin;
