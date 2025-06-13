@@ -217,51 +217,57 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
   console.log(`getUserSummariesAction: Fetching summaries for userId: ${userId}`);
   try {
     const summariesCol = collection(db, "summaries");
+    // La requête qui peut nécessiter un index composite: (userId ASC, createdAt DESC)
     const q = query(summariesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     
-    console.log(`getUserSummariesAction: Found ${querySnapshot.size} documents for userId: ${userId}`);
+    console.log(`getUserSummariesAction: Firestore query returned ${querySnapshot.size} documents for userId: ${userId}. If this is 0 and you expect data, CHECK FOR MISSING FIRESTORE INDEX in your browser console on the profile page.`);
 
     const summaries: UserSavedSummary[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      console.log(`getUserSummariesAction: Processing doc ${doc.id}, raw data:`, JSON.parse(JSON.stringify(data))); // Log serializable data
+      // Log des données brutes pour chaque document
+      // console.log(`getUserSummariesAction: Processing doc ${doc.id}, raw data:`, JSON.parse(JSON.stringify(data))); 
 
       let createdAtISO = new Date().toISOString(); // Default to now if missing/invalid
+      
       if (data.createdAt && typeof (data.createdAt as Timestamp).toDate === 'function') {
+        // Cas idéal: c'est un Timestamp Firestore
         createdAtISO = (data.createdAt as Timestamp).toDate().toISOString();
       } else if (data.createdAt) {
-        console.warn(`getUserSummariesAction: Doc ${doc.id} has an invalid or non-Timestamp createdAt field:`, data.createdAt);
-        // Attempt to parse if it's a string date, otherwise use default
-        if (typeof data.createdAt === 'string' || typeof data.createdAt === 'number') {
-            const parsedDate = new Date(data.createdAt);
-            if (!isNaN(parsedDate.getTime())) {
-                createdAtISO = parsedDate.toISOString();
-            }
+        // Si ce n'est pas un Timestamp mais existe, essayons de le parser (par ex. si c'est déjà une string ou un nombre)
+        console.warn(`getUserSummariesAction: Doc ${doc.id} has a createdAt field that is not a Firestore Timestamp. Attempting to parse. Field type: ${typeof data.createdAt}, Value:`, data.createdAt);
+        const parsedDate = new Date(data.createdAt);
+        if (!isNaN(parsedDate.getTime())) {
+            createdAtISO = parsedDate.toISOString();
+        } else {
+            console.error(`getUserSummariesAction: Doc ${doc.id} createdAt field could not be parsed into a valid date. Defaulting to now.`);
         }
       } else {
+        // createdAt est manquant
         console.warn(`getUserSummariesAction: Doc ${doc.id} is missing createdAt field. Defaulting to now.`);
       }
 
       summaries.push({
         id: doc.id,
-        userId: data.userId as string,
-        title: data.title as string,
-        content: data.content as string,
+        userId: data.userId as string, // Assurez-vous que ce champ existe et est correct
+        title: data.title as string || "Titre non disponible",
+        content: data.content as string || "Contenu non disponible",
         quizData: data.quizData as QuizData | undefined,
-        inputType: data.inputType as InputType,
-        inputValue: data.inputValue as string,
-        outputFormat: data.outputFormat as OutputFormat,
-        targetLanguage: data.targetLanguage as TargetLanguage,
+        inputType: data.inputType as InputType || 'text', // Fournir une valeur par défaut
+        inputValue: data.inputValue as string || "",
+        outputFormat: data.outputFormat as OutputFormat || 'resume', // Fournir une valeur par défaut
+        targetLanguage: data.targetLanguage as TargetLanguage || 'fr', // Fournir une valeur par défaut
         createdAt: createdAtISO,
       });
     });
-    console.log(`getUserSummariesAction: Parsed ${summaries.length} summaries.`);
+    console.log(`getUserSummariesAction: Successfully parsed ${summaries.length} summaries.`);
     return summaries;
   } catch (error) {
-    console.error("Error fetching user summaries from Firestore:", error);
-    // Ne pas lancer d'erreur au client, retourner un tableau vide et logger l'erreur.
+    console.error("Error fetching user summaries from Firestore in getUserSummariesAction:", error);
+    // Il est crucial de vérifier si Firestore émet un message d'erreur concernant un index manquant ici.
+    // Ce message apparaîtrait dans la console du SERVEUR (terminal où `npm run dev` tourne).
+    // Cependant, le lien de création d'index apparaît plus souvent dans la console du NAVIGATEUR.
     return []; 
   }
 }
-
