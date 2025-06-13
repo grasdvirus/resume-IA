@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, ChevronDown, ChevronUp, ExternalLink, Trash2 } from 'lucide-react';
-import { getUserSummariesAction, type UserSavedSummary } from '@/app/actions';
+import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,14 +27,14 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
-const OutputFormatLabels: Record<UserSavedSummary['outputFormat'], string> = {
+const OutputFormatLabels: Record<OutputFormat, string> = {
   resume: "Résumé",
   fiche: "Fiche de révision",
   qcm: "QCM",
   audio: "Audio"
 };
 
-const InputTypeLabels: Record<UserSavedSummary['inputType'], string> = {
+const InputTypeLabels: Record<InputType, string> = {
   text: "Texte",
   youtube: "Vidéo YouTube",
   pdf: "PDF"
@@ -64,15 +64,18 @@ export function UserProfile() {
   }, [user, authLoading]);
 
   const fetchSummaries = async (userId: string) => {
+    console.log("UserProfile: Attempting to fetch summaries for userId:", userId);
     setIsLoadingSummaries(true);
     try {
       const userSummaries = await getUserSummariesAction(userId);
+      console.log("UserProfile: Fetched summaries from action:", userSummaries);
       setSummaries(userSummaries);
     } catch (error: any) {
       toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés.", variant: "destructive" });
-      console.error("Failed to fetch summaries:", error);
+      console.error("UserProfile: Failed to fetch summaries:", error);
     } finally {
       setIsLoadingSummaries(false);
+      console.log("UserProfile: Finished fetching summaries.");
     }
   };
 
@@ -331,3 +334,4 @@ export function UserProfile() {
 //     margin-bottom: 1em;
 //   }
 // `}</style>
+

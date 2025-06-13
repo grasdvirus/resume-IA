@@ -211,36 +211,57 @@ export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise
 
 export async function getUserSummariesAction(userId: string): Promise<UserSavedSummary[]> {
   if (!userId) {
-    console.warn("getUserSummariesAction called without userId");
+    console.warn("getUserSummariesAction called without userId. Returning empty array.");
     return [];
   }
+  console.log(`getUserSummariesAction: Fetching summaries for userId: ${userId}`);
   try {
     const summariesCol = collection(db, "summaries");
     const q = query(summariesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     
+    console.log(`getUserSummariesAction: Found ${querySnapshot.size} documents for userId: ${userId}`);
+
     const summaries: UserSavedSummary[] = [];
     querySnapshot.forEach((doc) => {
-      const data = doc.data() as UserSummaryToSave; // Cast to include createdAt as Timestamp potentially
-      const createdAtTimestamp = data.createdAt as Timestamp | undefined;
+      const data = doc.data();
+      console.log(`getUserSummariesAction: Processing doc ${doc.id}, raw data:`, JSON.parse(JSON.stringify(data))); // Log serializable data
+
+      let createdAtISO = new Date().toISOString(); // Default to now if missing/invalid
+      if (data.createdAt && typeof (data.createdAt as Timestamp).toDate === 'function') {
+        createdAtISO = (data.createdAt as Timestamp).toDate().toISOString();
+      } else if (data.createdAt) {
+        console.warn(`getUserSummariesAction: Doc ${doc.id} has an invalid or non-Timestamp createdAt field:`, data.createdAt);
+        // Attempt to parse if it's a string date, otherwise use default
+        if (typeof data.createdAt === 'string' || typeof data.createdAt === 'number') {
+            const parsedDate = new Date(data.createdAt);
+            if (!isNaN(parsedDate.getTime())) {
+                createdAtISO = parsedDate.toISOString();
+            }
+        }
+      } else {
+        console.warn(`getUserSummariesAction: Doc ${doc.id} is missing createdAt field. Defaulting to now.`);
+      }
 
       summaries.push({
         id: doc.id,
-        userId: data.userId,
-        title: data.title,
-        content: data.content,
-        quizData: data.quizData,
-        inputType: data.inputType,
-        inputValue: data.inputValue,
-        outputFormat: data.outputFormat,
-        targetLanguage: data.targetLanguage,
-        createdAt: createdAtTimestamp ? createdAtTimestamp.toDate().toISOString() : new Date().toISOString(),
+        userId: data.userId as string,
+        title: data.title as string,
+        content: data.content as string,
+        quizData: data.quizData as QuizData | undefined,
+        inputType: data.inputType as InputType,
+        inputValue: data.inputValue as string,
+        outputFormat: data.outputFormat as OutputFormat,
+        targetLanguage: data.targetLanguage as TargetLanguage,
+        createdAt: createdAtISO,
       });
     });
+    console.log(`getUserSummariesAction: Parsed ${summaries.length} summaries.`);
     return summaries;
   } catch (error) {
-    console.error("Error fetching user summaries:", error);
+    console.error("Error fetching user summaries from Firestore:", error);
     // Ne pas lancer d'erreur au client, retourner un tableau vide et logger l'erreur.
     return []; 
   }
 }
+
