@@ -7,8 +7,8 @@ import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { z } from 'zod';
-import { db } from '@/lib/firebase'; // Import Firestore instance
-import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // db is now Realtime Database instance
+import { ref, push, get, child, serverTimestamp as rtdbServerTimestamp, query, orderByChild, equalTo } from 'firebase/database'; // Realtime Database imports
 
 export interface SummaryResult {
   title: string;
@@ -186,24 +186,29 @@ export interface UserSummaryToSave {
   inputValue: string;
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
-  createdAt?: Timestamp; // Champ pour Firestore, optionnel car serverTimestamp() le gère
+  createdAt?: number; // Changed to number for Realtime Database timestamp
 }
 
 export interface UserSavedSummary extends Omit<UserSummaryToSave, 'createdAt'> {
   id: string;
-  createdAt: string; // Firestore Timestamp converti en string ISO
+  createdAt: string; // Will be ISO string for client consumption
 }
 
 
 export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise<{ id: string }> {
   try {
-    const docRef = await addDoc(collection(db, "summaries"), {
+    const userSummariesRef = ref(db, `summaries/${summaryData.userId}`);
+    const newSummaryRef = push(userSummariesRef, {
       ...summaryData,
-      createdAt: serverTimestamp(), // Firestore va générer le timestamp
+      createdAt: Date.now(), // Use simple timestamp for RTDB
     });
-    return { id: docRef.id };
+    
+    if (!newSummaryRef.key) {
+      throw new Error("Impossible d'obtenir la clé pour le nouveau résumé sauvegardé.");
+    }
+    return { id: newSummaryRef.key };
   } catch (error) {
-    console.error("Error saving summary to Firestore:", error);
+    console.error("Error saving summary to Realtime Database:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la sauvegarde du résumé.";
     throw new Error(`Impossible de sauvegarder le résumé: ${errorMessage}`);
   }
@@ -214,60 +219,59 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     console.warn("getUserSummariesAction called without userId. Returning empty array.");
     return [];
   }
-  console.log(`getUserSummariesAction: Fetching summaries for userId: ${userId}`);
+  console.log(`getUserSummariesAction: Fetching summaries for userId: ${userId} from Realtime Database`);
   try {
-    const summariesCol = collection(db, "summaries");
-    // La requête qui peut nécessiter un index composite: (userId ASC, createdAt DESC)
-    const q = query(summariesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
+    const userSummariesRef = ref(db, `summaries/${userId}`);
+    // For Realtime Database, ordering is often done client-side after fetching,
+    // or by structuring data with sortable keys. Here we fetch all then sort.
+    const snapshot = await get(userSummariesRef);
     
-    console.log(`getUserSummariesAction: Firestore query returned ${querySnapshot.size} documents for userId: ${userId}. If this is 0 and you expect data, CHECK FOR MISSING FIRESTORE INDEX in your browser console on the profile page.`);
+    if (!snapshot.exists()) {
+      console.log(`getUserSummariesAction: No data found for userId: ${userId} in Realtime Database.`);
+      return [];
+    }
 
+    const summariesData = snapshot.val();
     const summaries: UserSavedSummary[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      // Log des données brutes pour chaque document
-      // console.log(`getUserSummariesAction: Processing doc ${doc.id}, raw data:`, JSON.parse(JSON.stringify(data))); 
 
-      let createdAtISO = new Date().toISOString(); // Default to now if missing/invalid
-      
-      if (data.createdAt && typeof (data.createdAt as Timestamp).toDate === 'function') {
-        // Cas idéal: c'est un Timestamp Firestore
-        createdAtISO = (data.createdAt as Timestamp).toDate().toISOString();
+    for (const key in summariesData) {
+      const data = summariesData[key];
+      let createdAtISO = new Date().toISOString(); // Default
+      if (data.createdAt && typeof data.createdAt === 'number') {
+        createdAtISO = new Date(data.createdAt).toISOString();
       } else if (data.createdAt) {
-        // Si ce n'est pas un Timestamp mais existe, essayons de le parser (par ex. si c'est déjà une string ou un nombre)
-        console.warn(`getUserSummariesAction: Doc ${doc.id} has a createdAt field that is not a Firestore Timestamp. Attempting to parse. Field type: ${typeof data.createdAt}, Value:`, data.createdAt);
+        console.warn(`getUserSummariesAction: Summary ${key} has a createdAt field that is not a number. Attempting to parse. Value:`, data.createdAt);
         const parsedDate = new Date(data.createdAt);
         if (!isNaN(parsedDate.getTime())) {
-            createdAtISO = parsedDate.toISOString();
+          createdAtISO = parsedDate.toISOString();
         } else {
-            console.error(`getUserSummariesAction: Doc ${doc.id} createdAt field could not be parsed into a valid date. Defaulting to now.`);
+          console.error(`getUserSummariesAction: Summary ${key} createdAt field could not be parsed into a valid date. Defaulting to now.`);
         }
       } else {
-        // createdAt est manquant
-        console.warn(`getUserSummariesAction: Doc ${doc.id} is missing createdAt field. Defaulting to now.`);
+         console.warn(`getUserSummariesAction: Summary ${key} is missing createdAt field. Defaulting to now.`);
       }
 
       summaries.push({
-        id: doc.id,
-        userId: data.userId as string, // Assurez-vous que ce champ existe et est correct
+        id: key,
+        userId: data.userId as string,
         title: data.title as string || "Titre non disponible",
         content: data.content as string || "Contenu non disponible",
         quizData: data.quizData as QuizData | undefined,
-        inputType: data.inputType as InputType || 'text', // Fournir une valeur par défaut
+        inputType: data.inputType as InputType || 'text',
         inputValue: data.inputValue as string || "",
-        outputFormat: data.outputFormat as OutputFormat || 'resume', // Fournir une valeur par défaut
-        targetLanguage: data.targetLanguage as TargetLanguage || 'fr', // Fournir une valeur par défaut
+        outputFormat: data.outputFormat as OutputFormat || 'resume',
+        targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
         createdAt: createdAtISO,
       });
-    });
-    console.log(`getUserSummariesAction: Successfully parsed ${summaries.length} summaries.`);
+    }
+    
+    // Sort by createdAt descending (most recent first)
+    summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    console.log(`getUserSummariesAction: Successfully parsed ${summaries.length} summaries from Realtime Database.`);
     return summaries;
   } catch (error) {
-    console.error("Error fetching user summaries from Firestore in getUserSummariesAction:", error);
-    // Il est crucial de vérifier si Firestore émet un message d'erreur concernant un index manquant ici.
-    // Ce message apparaîtrait dans la console du SERVEUR (terminal où `npm run dev` tourne).
-    // Cependant, le lien de création d'index apparaît plus souvent dans la console du NAVIGATEUR.
+    console.error("Error fetching user summaries from Realtime Database in getUserSummariesAction:", error);
     return []; 
   }
 }

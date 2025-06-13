@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getDatabase, type Database } from 'firebase/database'; // Changed import for Realtime Database
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -12,12 +12,13 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL, // Add this for Realtime Database if not already present by default for your setup
 };
 
 // Initialize Firebase
 let app: FirebaseApp;
 let auth: Auth;
-let db: Firestore;
+let db: Database; // Changed type to Database (Realtime Database)
 let analytics: Analytics | undefined;
 
 if (!getApps().length) {
@@ -27,7 +28,7 @@ if (!getApps().length) {
 }
 
 auth = getAuth(app);
-db = getFirestore(app);
+db = getDatabase(app); // Changed to getDatabase for Realtime Database
 
 // Initialize Firebase Analytics only on the client side
 if (typeof window !== 'undefined') {
