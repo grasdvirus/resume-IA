@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Brain, LogOut, UserCircle, LogIn, Menu, User, Settings, FolderArchive, MessageSquare } from 'lucide-react'; 
+import { Brain, LogOut, UserCircle, LogIn, Menu, User, Settings, FolderArchive, MessageSquare, Loader2 } from 'lucide-react'; 
 import {
   Dialog,
   DialogContent,
@@ -176,6 +176,11 @@ export function ResumAIHeader() {
                 <User className="mr-2 h-5 w-5"/> Profil
               </Link>
             </li>
+             <li className={`py-2 px-3 border-b border-border text-base`}>
+              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <FolderArchive className="mr-2 h-5 w-5"/> Mes Résumés
+              </Link>
+            </li>
             <li className={`py-2 px-3 border-b border-border text-sm text-muted-foreground`}>
               Connecté: {user.displayName || user.email}
             </li>
@@ -214,9 +219,11 @@ export function ResumAIHeader() {
                 <Settings className="mr-2 h-4 w-4" />
                 Paramètres (bientôt)
               </DropdownMenuItem>
-               <DropdownMenuItem className="cursor-pointer" disabled>
-                <FolderArchive className="mr-2 h-4 w-4" />
-                Mes Résumés (bientôt)
+               <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                  <FolderArchive className="mr-2 h-4 w-4" />
+                  Mes Résumés
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
@@ -251,7 +258,17 @@ export function ResumAIHeader() {
           </li>
         </>
       ) : (
-        <li><Loader2 className="h-6 w-6 animate-spin text-primary" /></li>
+        // Correctly handling the loading state for the entire authLinks section
+        <li className="flex items-center justify-center md:w-auto md:px-0">
+           {/* Desktop loader */}
+          <div className="hidden md:block">
+             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+          {/* Mobile loader placeholder (will be inside the sheet if open, or not visible if menu closed) */}
+           <div className="md:hidden">
+             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        </li>
       )}
     </>
   );
@@ -306,4 +323,3 @@ export function ResumAIHeader() {
     </header>
   );
 }
-
