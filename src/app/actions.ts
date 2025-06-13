@@ -8,7 +8,7 @@ import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; // Import Firestore instance
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 
 export interface SummaryResult {
   title: string;
@@ -186,18 +186,61 @@ export interface UserSummaryToSave {
   inputValue: string;
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
+  createdAt?: Timestamp; // Champ pour Firestore, optionnel car serverTimestamp() le gère
 }
+
+export interface UserSavedSummary extends Omit<UserSummaryToSave, 'createdAt'> {
+  id: string;
+  createdAt: string; // Firestore Timestamp converti en string ISO
+}
+
 
 export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise<{ id: string }> {
   try {
     const docRef = await addDoc(collection(db, "summaries"), {
       ...summaryData,
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp(), // Firestore va générer le timestamp
     });
     return { id: docRef.id };
   } catch (error) {
     console.error("Error saving summary to Firestore:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la sauvegarde du résumé.";
     throw new Error(`Impossible de sauvegarder le résumé: ${errorMessage}`);
+  }
+}
+
+export async function getUserSummariesAction(userId: string): Promise<UserSavedSummary[]> {
+  if (!userId) {
+    console.warn("getUserSummariesAction called without userId");
+    return [];
+  }
+  try {
+    const summariesCol = collection(db, "summaries");
+    const q = query(summariesCol, where("userId", "==", userId), orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    
+    const summaries: UserSavedSummary[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as UserSummaryToSave; // Cast to include createdAt as Timestamp potentially
+      const createdAtTimestamp = data.createdAt as Timestamp | undefined;
+
+      summaries.push({
+        id: doc.id,
+        userId: data.userId,
+        title: data.title,
+        content: data.content,
+        quizData: data.quizData,
+        inputType: data.inputType,
+        inputValue: data.inputValue,
+        outputFormat: data.outputFormat,
+        targetLanguage: data.targetLanguage,
+        createdAt: createdAtTimestamp ? createdAtTimestamp.toDate().toISOString() : new Date().toISOString(),
+      });
+    });
+    return summaries;
+  } catch (error) {
+    console.error("Error fetching user summaries:", error);
+    // Ne pas lancer d'erreur au client, retourner un tableau vide et logger l'erreur.
+    return []; 
   }
 }

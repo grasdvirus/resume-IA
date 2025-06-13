@@ -10,21 +10,71 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings } from 'lucide-react';
+import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, ChevronDown, ChevronUp, ExternalLink, Trash2 } from 'lucide-react';
+import { getUserSummariesAction, type UserSavedSummary } from '@/app/actions';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+
+const OutputFormatLabels: Record<UserSavedSummary['outputFormat'], string> = {
+  resume: "Résumé",
+  fiche: "Fiche de révision",
+  qcm: "QCM",
+  audio: "Audio"
+};
+
+const InputTypeLabels: Record<UserSavedSummary['inputType'], string> = {
+  text: "Texte",
+  youtube: "Vidéo YouTube",
+  pdf: "PDF"
+};
 
 export function UserProfile() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState('');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
 
+  const [summaries, setSummaries] = useState<UserSavedSummary[]>([]);
+  const [isLoadingSummaries, setIsLoadingSummaries] = useState(true);
+  const [expandedSummaries, setExpandedSummaries] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
+      fetchSummaries(user.uid);
+    } else if (!authLoading) {
+      // Si pas d'utilisateur et que l'authentification n'est plus en chargement,
+      // on peut éviter de charger les résumés.
+      setIsLoadingSummaries(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
+
+  const fetchSummaries = async (userId: string) => {
+    setIsLoadingSummaries(true);
+    try {
+      const userSummaries = await getUserSummariesAction(userId);
+      setSummaries(userSummaries);
+    } catch (error: any) {
+      toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés.", variant: "destructive" });
+      console.error("Failed to fetch summaries:", error);
+    } finally {
+      setIsLoadingSummaries(false);
+    }
+  };
 
   const handleUpdateDisplayName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,18 +115,30 @@ export function UserProfile() {
       setIsSendingVerification(false);
     }
   };
+  
+  const toggleSummaryExpansion = (summaryId: string) => {
+    setExpandedSummaries(prev => ({ ...prev, [summaryId]: !prev[summaryId] }));
+  };
 
-  if (loading) {
+  const handleDeleteSummary = async (summaryId: string) => {
+    // TODO: Implémenter la suppression du résumé (nécessite une action serveur et des règles Firestore)
+    toast({ title: "Fonctionnalité à venir", description: `La suppression du résumé ${summaryId} sera bientôt disponible.`});
+    console.log("Demande de suppression pour :", summaryId);
+     // Après suppression, actualiser la liste :
+    // if (user) fetchSummaries(user.uid);
+  };
+
+
+  if (authLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
   if (!user) {
-    // This case should ideally be handled by the page redirect logic
     return <p className="text-center">Veuillez vous connecter pour voir votre profil.</p>;
   }
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center"><User className="mr-3 h-7 w-7 text-primary" />Informations du Compte</CardTitle>
@@ -145,14 +207,93 @@ export function UserProfile() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl flex items-center"><FolderArchive className="mr-3 h-7 w-7 text-primary" />Mes Fichiers / Résumés</CardTitle>
-          <CardDescription>Accédez à vos résumés sauvegardés (Fonctionnalité à venir).</CardDescription>
+          <CardTitle className="font-headline text-2xl flex items-center"><FolderArchive className="mr-3 h-7 w-7 text-primary" />Mes Résumés Sauvegardés</CardTitle>
+          <CardDescription>Retrouvez ici tous les résumés que vous avez générés et sauvegardés.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="p-6 bg-muted/30 rounded-md text-center">
-            <FolderArchive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Cette section affichera bientôt l'historique de vos résumés et vous permettra de les gérer.</p>
-          </div>
+          {isLoadingSummaries && (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="ml-3 text-muted-foreground">Chargement de vos résumés...</p>
+            </div>
+          )}
+          {!isLoadingSummaries && summaries.length === 0 && (
+            <div className="p-6 bg-muted/30 rounded-md text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Vous n'avez pas encore de résumés sauvegardés.</p>
+              <p className="text-sm text-muted-foreground mt-1">Commencez par en générer un depuis la page d'accueil !</p>
+            </div>
+          )}
+          {!isLoadingSummaries && summaries.length > 0 && (
+            <Accordion type="multiple" className="w-full space-y-3">
+              {summaries.map((summary) => (
+                <AccordionItem value={summary.id} key={summary.id} className="bg-background border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                    <div className="flex-1 text-left">
+                      <h4 className="font-semibold text-base text-primary truncate group-hover:text-primary/90" title={summary.title}>
+                        {summary.title}
+                      </h4>
+                      <div className="flex items-center text-xs text-muted-foreground mt-1 space-x-3">
+                        <div className="flex items-center">
+                          <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                          {new Date(summary.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </div>
+                         <Badge variant="secondary" className="capitalize">{OutputFormatLabels[summary.outputFormat] || summary.outputFormat}</Badge>
+                         <Badge variant="outline" className="capitalize">{InputTypeLabels[summary.inputType] || summary.inputType}</Badge>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 pt-0">
+                    <div className="prose prose-sm max-w-none result-content-area border-t pt-3 mt-2" dangerouslySetInnerHTML={{ __html: summary.content }} />
+                    {summary.quizData && summary.outputFormat === 'qcm' && (
+                        <div className="mt-4 border-t pt-3">
+                            <h5 className="font-semibold mb-2 text-sm">Questions du Quiz :</h5>
+                            {summary.quizData.questions.map((q, idx) => (
+                                <div key={q.id} className="mb-3 text-xs p-2 border rounded-md bg-muted/50">
+                                    <p className="font-medium">Q{idx+1}: {q.questionText}</p>
+                                    <ul className="list-disc list-inside pl-2 mt-1">
+                                        {q.options.map(opt => (
+                                            <li key={opt.id} className={opt.id === q.correctAnswerId ? 'text-green-600 font-semibold' : ''}>
+                                                {opt.text} {opt.id === q.correctAnswerId ? '(Correct)' : ''}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {q.explanation && <p className="mt-1 text-muted-foreground italic">Explication: {q.explanation}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="mt-4 flex justify-end space-x-2">
+                       <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="destructive" size="sm">
+                            <Trash2 className="mr-1.5 h-4 w-4" /> Supprimer
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ce résumé ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Cette action est irréversible et supprimera définitivement "{summary.title}".
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteSummary(summary.id)} className="bg-destructive hover:bg-destructive/90">
+                              Oui, supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      {/* <Button variant="outline" size="sm" onClick={() => window.alert("Ré-éditer ou partager sera bientôt disponible")}>
+                        <ExternalLink className="mr-1.5 h-4 w-4" /> Options
+                      </Button> */}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
         </CardContent>
       </Card>
 
@@ -171,3 +312,22 @@ export function UserProfile() {
     </div>
   );
 }
+// Ajoutez ce style global si ce n'est pas déjà fait dans un fichier CSS global ou SummarizerClientWrapper
+// <style jsx global>{`
+//   .result-content-area ul, .result-content-area ol {
+//     list-style-position: inside;
+//     padding-left: 1.5em; 
+//     margin-left: 0; 
+//   }
+//   .result-content-area ul li, .result-content-area ol li {
+//     margin-bottom: 0.5em;
+//   }
+//   .result-content-area h4 {
+//     font-size: 1.25em; 
+//     margin-top: 1em;
+//     margin-bottom: 0.5em;
+//   }
+//    .result-content-area p {
+//     margin-bottom: 1em;
+//   }
+// `}</style>
