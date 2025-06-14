@@ -17,6 +17,7 @@ import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
@@ -53,13 +54,14 @@ const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value
 
 export function SummarizerClientWrapper() {
   const { user } = useAuth();
+  const { defaultLanguage, notificationPreferences } = useSettings(); // Use settings
   const [activeTab, setActiveTab] = useState<InputType>("pdf");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfFileName, setPdfFileName] = useState<string>("");
   const [videoUrl, setVideoUrl] = useState("");
   const [inputText, setInputText] = useState("");
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<OutputFormat>("resume");
-  const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>("fr");
+  const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>(defaultLanguage);
   const [isProcessing, setIsProcessing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,12 @@ export function SummarizerClientWrapper() {
     };
   }, []);
   
+  // Update selected language if defaultLanguage from settings changes
+  // This effect will run when defaultLanguage (from context) changes.
+  useEffect(() => {
+    setSelectedLanguage(defaultLanguage);
+  }, [defaultLanguage]);
+
   // Reset summarySaved when input changes
   useEffect(() => {
     setSummarySaved(false);
@@ -229,8 +237,7 @@ export function SummarizerClientWrapper() {
     setPdfFileName("");
     setVideoUrl("");
     setInputText("");
-    // setSelectedOutputFormat("resume"); // Optionnel: réinitialiser le format de sortie
-    // setSelectedLanguage("fr"); // Optionnel: réinitialiser la langue
+    setSelectedLanguage(defaultLanguage); // Reset to default language from settings
     setUserAnswers({});
     setQuizScore(null);
     setShowQuizResults(false);
@@ -325,7 +332,9 @@ export function SummarizerClientWrapper() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ title: "Téléchargement réussi", description: "Le résumé a été téléchargé au format .txt." });
+    if (notificationPreferences.downloadSuccess) {
+      toast({ title: "Téléchargement réussi", description: "Le résumé a été téléchargé au format .txt." });
+    }
   };
 
   const shareResult = async () => {
@@ -340,16 +349,23 @@ export function SummarizerClientWrapper() {
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
         await navigator.share(shareData);
-        toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
+        if (notificationPreferences.shareSuccess) {
+          toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
+        }
       } catch (err) {
-        // Silently fail
+        // Silently fail or log error if needed for debugging
+        console.warn("Share API error:", err);
       }
     } else {
       try {
         await navigator.clipboard.writeText(textContent);
-        toast({ title: "Copié dans le presse-papiers", description: "Le résumé a été copié. Vous pouvez le coller où vous voulez." });
+        if (notificationPreferences.shareSuccess) {
+          toast({ title: "Copié dans le presse-papiers", description: "Le résumé a été copié. Vous pouvez le coller où vous voulez." });
+        }
       } catch (err) {
-        toast({ title: "Erreur de copie", description: "Impossible de copier le résumé dans le presse-papiers.", variant: "destructive" });
+        if (notificationPreferences.shareSuccess) { // Still show toast if preference is on, even if copy failed (might be due to browser restrictions)
+          toast({ title: "Erreur de copie", description: "Impossible de copier le résumé dans le presse-papiers.", variant: "destructive" });
+        }
       }
     }
   };
@@ -357,7 +373,7 @@ export function SummarizerClientWrapper() {
   const handleExportPdf = () => {
     if (!summaryResult) return;
     window.print();
-    toast({ title: "Export PDF", description: "Utilisez la fonction 'Enregistrer en PDF' de votre navigateur." });
+    // No toast here as it's a browser action, not a direct app action with immediate feedback needed via toast
   };
   
   const handleToggleAudio = () => {
@@ -678,4 +694,3 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
-

@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { SettingsProvider } from '@/contexts/SettingsContext'; // Import SettingsProvider
 
 export const metadata: Metadata = {
   title: 'ResumAI - Résumez tout en quelques secondes',
@@ -53,8 +54,10 @@ export default function RootLayout({
       <body className="font-body antialiased bg-background text-foreground">
         <AuthProvider>
           <ThemeProvider>
-            {children}
-            <Toaster />
+            <SettingsProvider> {/* Wrap with SettingsProvider */}
+              {children}
+              <Toaster />
+            </SettingsProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>

@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, ChevronDown, ChevronUp, ExternalLink, Trash2, Sun, Moon } from 'lucide-react';
+import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon } from 'lucide-react';
 import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTheme } from '@/contexts/ThemeContext';
 import { Switch } from '@/components/ui/switch';
+import { useSettings, type AppLanguage } from '@/contexts/SettingsContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const OutputFormatLabels: Record<OutputFormat, string> = {
@@ -52,8 +54,14 @@ export function UserProfile() {
 
   const [summaries, setSummaries] = useState<UserSavedSummary[]>([]);
   const [isLoadingSummaries, setIsLoadingSummaries] = useState(true);
-  const [expandedSummaries, setExpandedSummaries] = useState<Record<string, boolean>>({});
   const { theme, toggleTheme } = useTheme();
+  const {
+    defaultLanguage,
+    setDefaultLanguage,
+    notificationPreferences,
+    setNotificationPreference
+  } = useSettings();
+
 
   useEffect(() => {
     if (user) {
@@ -65,11 +73,11 @@ export function UserProfile() {
   }, [user, authLoading]);
 
   const fetchSummaries = async (userId: string) => {
-    console.log("UserProfile: Attempting to fetch summaries for userId:", userId);
+    console.log(`UserProfile: Attempting to fetch summaries for userId: ${userId} from Realtime Database`);
     setIsLoadingSummaries(true);
     try {
       const userSummaries = await getUserSummariesAction(userId);
-      console.log("UserProfile: Fetched summaries from action:", userSummaries);
+      console.log(`UserProfile: Fetched ${userSummaries.length} summaries from action:`, userSummaries);
       setSummaries(userSummaries);
     } catch (error: any) {
       toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés: " + error.message, variant: "destructive" });
@@ -79,6 +87,7 @@ export function UserProfile() {
       console.log("UserProfile: Finished fetching summaries.");
     }
   };
+
 
   const handleUpdateDisplayName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,10 +129,6 @@ export function UserProfile() {
     }
   };
   
-  const toggleSummaryExpansion = (summaryId: string) => {
-    setExpandedSummaries(prev => ({ ...prev, [summaryId]: !prev[summaryId] }));
-  };
-
   const handleDeleteSummary = async (summaryId: string) => {
     toast({ title: "Fonctionnalité à venir", description: `La suppression du résumé ${summaryId} sera bientôt disponible.`});
     console.log("Demande de suppression pour :", summaryId);
@@ -315,31 +320,67 @@ export function UserProfile() {
               aria-label="Changer de thème"
             />
           </div>
-          <div className="p-6 bg-muted/10 dark:bg-muted/5 rounded-lg text-center border border-dashed border-border">
+
+          <div className="p-4 bg-muted/20 dark:bg-muted/10 rounded-lg border border-border space-y-3">
+            <div className="flex items-center">
+                <LanguagesIcon className="mr-3 h-6 w-6 text-blue-500" />
+                <Label htmlFor="default-language-select" className="text-base font-medium">
+                    Langue par défaut (pour les résumés)
+                </Label>
+            </div>
+            <Select value={defaultLanguage} onValueChange={(value) => setDefaultLanguage(value as AppLanguage)}>
+                <SelectTrigger id="default-language-select" className="w-full">
+                    <SelectValue placeholder="Sélectionnez une langue" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="fr">Français</SelectItem>
+                    <SelectItem value="en">Anglais (English)</SelectItem>
+                    <SelectItem value="es">Espagnol (Español)</SelectItem>
+                </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+                Cette langue sera présélectionnée lors de la génération de nouveaux résumés.
+            </p>
+          </div>
+
+          <div className="p-4 bg-muted/20 dark:bg-muted/10 rounded-lg border border-border space-y-4">
+            <div className="flex items-center mb-2">
+                <Bell className="mr-3 h-6 w-6 text-green-500" />
+                <h4 className="text-base font-medium">Préférences de notification</h4>
+            </div>
+            <div className="flex items-center justify-between">
+                <Label htmlFor="download-notif-switch" className="flex-1 cursor-pointer">
+                    Notifications de téléchargement réussi
+                </Label>
+                <Switch
+                    id="download-notif-switch"
+                    checked={notificationPreferences.downloadSuccess}
+                    onCheckedChange={(checked) => setNotificationPreference('downloadSuccess', checked)}
+                    aria-label="Activer/Désactiver les notifications de téléchargement"
+                />
+            </div>
+             <div className="flex items-center justify-between">
+                <Label htmlFor="share-notif-switch" className="flex-1 cursor-pointer">
+                    Notifications de partage/copie réussi
+                </Label>
+                <Switch
+                    id="share-notif-switch"
+                    checked={notificationPreferences.shareSuccess}
+                    onCheckedChange={(checked) => setNotificationPreference('shareSuccess', checked)}
+                    aria-label="Activer/Désactiver les notifications de partage"
+                />
+            </div>
+            <p className="text-xs text-muted-foreground">
+                Gérez les notifications (pop-ups) que vous recevez pour certaines actions.
+            </p>
+          </div>
+
+          <div className="p-6 bg-muted/10 dark:bg-muted/5 rounded-lg text-center border border-dashed border-border mt-4">
             <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">D'autres options de personnalisation (langue par défaut, notifications, etc.) apparaîtront ici bientôt.</p>
+            <p className="text-sm text-muted-foreground">D'autres options de personnalisation apparaîtront ici bientôt.</p>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-// Styles globaux pour `.prose` et `.result-content-area` (si ce n'est pas déjà géré)
-// <style jsx global>{`
-//   .result-content-area ul, .result-content-area ol {
-//     list-style-position: inside;
-//     padding-left: 1.5em; 
-//     margin-left: 0; 
-//   }
-//   .result-content-area ul li, .result-content-area ol li {
-//     margin-bottom: 0.5em;
-//   }
-//   .result-content-area h4 {
-//     font-size: 1.25em; 
-//     margin-top: 1em;
-//     margin-bottom: 0.5em;
-//   }
-//    .result-content-area p {
-//     margin-bottom: 1em;
-//   }
-// `}</style>
