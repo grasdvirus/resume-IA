@@ -2,6 +2,8 @@
 'use server';
 /**
  * @fileOverview Summarizes a YouTube video given its URL.
+ * It now attempts to fetch video details (title, description) using the YouTube Data API
+ * to provide better context to the summarization model.
  *
  * - summarizeYouTubeVideo - A function that handles the summarization process.
  * - SummarizeYouTubeVideoInput - The input type for the summarizeYouTubeVideo function.
@@ -10,11 +12,16 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { getVideoDetails, parseYouTubeVideoId } from '@/services/youtube'; // Import new service
 
 const SummarizeYouTubeVideoInputSchema = z.object({
   youtubeVideoUrl: z
     .string()
     .describe('The URL of the YouTube video to summarize.'),
+  // Fields to optionally pass video details if already fetched or for direct use
+  // These will be populated by the flow itself after calling the YouTube service.
+  videoTitle: z.string().optional().describe('The fetched title of the YouTube video.'),
+  videoDescription: z.string().optional().describe('The fetched description of the YouTube video.')
 });
 export type SummarizeYouTubeVideoInput = z.infer<typeof SummarizeYouTubeVideoInputSchema>;
 
@@ -23,7 +30,10 @@ const SummarizeYouTubeVideoOutputSchema = z.object({
 });
 export type SummarizeYouTubeVideoOutput = z.infer<typeof SummarizeYouTubeVideoOutputSchema>;
 
-export async function summarizeYouTubeVideo(input: SummarizeYouTubeVideoInput): Promise<SummarizeYouTubeVideoOutput> {
+export async function summarizeYouTubeVideo(input: { youtubeVideoUrl: string }): Promise<SummarizeYouTubeVideoOutput> {
+  // The flow input type (SummarizeYouTubeVideoInput) includes optional title/description,
+  // but the exported function signature should only require youtubeVideoUrl for simplicity for the caller.
+  // The flow will populate title/description internally.
   return summarizeYouTubeVideoFlow(input);
 }
 
@@ -33,28 +43,73 @@ const prompt = ai.definePrompt({
   output: {schema: SummarizeYouTubeVideoOutputSchema},
   prompt: `You are an AI assistant tasked with summarizing YouTube videos *in French*.
 
-You will be given a YouTube video URL. Please do your best to summarize the video.
-Focus on extracting key information from the video's title, description, and any other publicly accessible metadata or content you can infer from this URL.
-You do not have the ability to watch the video directly or access a full, time-coded transcript.
-Your summary should reflect the main topics and purpose of the video based on this available information.
+You will be given a YouTube video URL, and potentially its title and description if they could be fetched.
+Please generate a concise summary in French.
 
-If the information available from the URL is very limited, please state that and provide a brief overview based on what you could find.
+YouTube Video URL: {{{youtubeVideoUrl}}}
 
-YouTube Video URL: {{{youtubeVideoUrl}}}`,
+{{#if videoTitle}}
+Video Title: {{{videoTitle}}}
+{{/if}}
+
+{{#if videoDescription}}
+Video Description:
+{{{videoDescription}}}
+---
+Based on the provided information (URL, title, and description if available), summarize the video.
+If title and description are not provided, do your best based on the URL alone, but state that information was limited.
+{{else}}
+---
+The title and description for this video could not be fetched.
+Please summarize based on the YouTube Video URL: {{{youtubeVideoUrl}}} as best as possible.
+Acknowledge that the summary is based on limited information if applicable.
+{{/if}}
+
+Focus on extracting key information. Your summary should reflect the main topics and purpose of the video.
+`,
 });
 
 const summarizeYouTubeVideoFlow = ai.defineFlow(
   {
     name: 'summarizeYouTubeVideoFlow',
-    inputSchema: SummarizeYouTubeVideoInputSchema,
+    // The flow's internal input type can be the extended one,
+    // but its public-facing input (from the wrapper function) is just { youtubeVideoUrl: string }
+    inputSchema: z.object({ youtubeVideoUrl: z.string() }),
     outputSchema: SummarizeYouTubeVideoOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    let videoTitle: string | undefined = undefined;
+    let videoDescription: string | undefined = undefined;
+
+    const videoId = parseYouTubeVideoId(input.youtubeVideoUrl);
+    if (videoId) {
+      const details = await getVideoDetails(videoId);
+      if (details) {
+        videoTitle = details.title;
+        videoDescription = details.description;
+      }
+    }
+
+    const promptInput: SummarizeYouTubeVideoInput = {
+      youtubeVideoUrl: input.youtubeVideoUrl,
+      videoTitle,
+      videoDescription,
+    };
+
+    const {output} = await prompt(promptInput);
+
     if (!output || !output.summary) {
-      // Fallback if the summary is empty or undefined
-      return { summary: "Impossible de générer un résumé pour cette vidéo. Les informations accessibles depuis l'URL sont peut-être insuffisantes ou la vidéo n'est pas accessible publiquement." };
+      let fallbackMessage = "Impossible de générer un résumé pour cette vidéo. ";
+      if (videoTitle && videoDescription) {
+        fallbackMessage += "Les détails ont été récupérés mais la génération a échoué.";
+      } else if (videoId) {
+        fallbackMessage += "Les détails de la vidéo n'ont pas pu être récupérés via l'API YouTube. Le résumé est basé sur des informations limitées.";
+      } else {
+        fallbackMessage += "L'URL de la vidéo semble invalide ou les informations sont insuffisantes.";
+      }
+      return { summary: fallbackMessage };
     }
     return output;
   }
 );
+
