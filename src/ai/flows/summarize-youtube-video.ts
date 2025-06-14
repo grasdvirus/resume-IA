@@ -33,9 +33,12 @@ const prompt = ai.definePrompt({
   output: {schema: SummarizeYouTubeVideoOutputSchema},
   prompt: `You are an AI assistant tasked with summarizing YouTube videos *in French*.
 
-You will be given a YouTube video URL. Your ability to summarize depends on the publicly available information associated with this URL, such as the video's title and description. You **cannot directly watch the video or access its full transcript** through this interface.
+You will be given a YouTube video URL. Please do your best to summarize the video.
+Focus on extracting key information from the video's title, description, and any other publicly accessible metadata or content you can infer from this URL.
+You do not have the ability to watch the video directly or access a full, time-coded transcript.
+Your summary should reflect the main topics and purpose of the video based on this available information.
 
-Therefore, please provide a summary based on the information you can gather from the video's metadata (title, description, etc.). If the metadata is insufficient for a meaningful summary, state that you can only provide a very general overview based on limited information.
+If the information available from the URL is very limited, please state that and provide a brief overview based on what you could find.
 
 YouTube Video URL: {{{youtubeVideoUrl}}}`,
 });
@@ -48,7 +51,10 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output || !output.summary) {
+      // Fallback if the summary is empty or undefined
+      return { summary: "Impossible de générer un résumé pour cette vidéo. Les informations accessibles depuis l'URL sont peut-être insuffisantes ou la vidéo n'est pas accessible publiquement." };
+    }
+    return output;
   }
 );
-
