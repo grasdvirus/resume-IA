@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, ChevronDown, ChevronUp, ExternalLink, Trash2 } from 'lucide-react';
+import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, ChevronDown, ChevronUp, ExternalLink, Trash2, Sun, Moon } from 'lucide-react';
 import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useTheme } from '@/contexts/ThemeContext';
+import { Switch } from '@/components/ui/switch';
 
 
 const OutputFormatLabels: Record<OutputFormat, string> = {
@@ -51,14 +53,13 @@ export function UserProfile() {
   const [summaries, setSummaries] = useState<UserSavedSummary[]>([]);
   const [isLoadingSummaries, setIsLoadingSummaries] = useState(true);
   const [expandedSummaries, setExpandedSummaries] = useState<Record<string, boolean>>({});
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
       fetchSummaries(user.uid);
     } else if (!authLoading) {
-      // Si pas d'utilisateur et que l'authentification n'est plus en chargement,
-      // on peut éviter de charger les résumés.
       setIsLoadingSummaries(false);
     }
   }, [user, authLoading]);
@@ -71,7 +72,7 @@ export function UserProfile() {
       console.log("UserProfile: Fetched summaries from action:", userSummaries);
       setSummaries(userSummaries);
     } catch (error: any) {
-      toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés.", variant: "destructive" });
+      toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés: " + error.message, variant: "destructive" });
       console.error("UserProfile: Failed to fetch summaries:", error);
     } finally {
       setIsLoadingSummaries(false);
@@ -124,11 +125,8 @@ export function UserProfile() {
   };
 
   const handleDeleteSummary = async (summaryId: string) => {
-    // TODO: Implémenter la suppression du résumé (nécessite une action serveur et des règles Firestore)
     toast({ title: "Fonctionnalité à venir", description: `La suppression du résumé ${summaryId} sera bientôt disponible.`});
     console.log("Demande de suppression pour :", summaryId);
-     // Après suppression, actualiser la liste :
-    // if (user) fetchSummaries(user.uid);
   };
 
 
@@ -152,14 +150,14 @@ export function UserProfile() {
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={user.email || ''} readOnly disabled className="mt-1 bg-muted/50" />
             {!user.emailVerified && (
-              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm text-yellow-700 mb-2">Votre adresse e-mail n'est pas vérifiée.</p>
+              <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 rounded-md dark:bg-yellow-900/30 dark:border-yellow-700">
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-2">Votre adresse e-mail n'est pas vérifiée.</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleResendVerificationEmail}
                   disabled={isSendingVerification}
-                  className="text-yellow-800 border-yellow-400 hover:bg-yellow-100"
+                  className="text-yellow-800 border-yellow-400 hover:bg-yellow-200 dark:text-yellow-200 dark:border-yellow-600 dark:hover:bg-yellow-800/50"
                 >
                   {isSendingVerification ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4" />}
                   Renvoyer l'e-mail de vérification
@@ -167,7 +165,7 @@ export function UserProfile() {
               </div>
             )}
              {user.emailVerified && (
-                <div className="mt-2 text-sm text-green-600 flex items-center">
+                <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
                     <MailCheck className="mr-2 h-5 w-5" /> Adresse e-mail vérifiée.
                 </div>
             )}
@@ -230,10 +228,10 @@ export function UserProfile() {
           {!isLoadingSummaries && summaries.length > 0 && (
             <Accordion type="multiple" className="w-full space-y-3">
               {summaries.map((summary) => (
-                <AccordionItem value={summary.id} key={summary.id} className="bg-background border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <AccordionItem value={summary.id} key={summary.id} className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline group">
                     <div className="flex-1 text-left">
-                      <h4 className="font-semibold text-base text-primary truncate group-hover:text-primary/90" title={summary.title}>
+                      <h4 className="font-semibold text-base text-primary group-hover:text-primary/90 truncate" title={summary.title}>
                         {summary.title}
                       </h4>
                       <div className="flex items-center text-xs text-muted-foreground mt-1 space-x-3">
@@ -247,16 +245,16 @@ export function UserProfile() {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-0">
-                    <div className="prose prose-sm max-w-none result-content-area border-t pt-3 mt-2" dangerouslySetInnerHTML={{ __html: summary.content }} />
+                    <div className="prose prose-sm dark:prose-invert max-w-none result-content-area border-t border-border pt-3 mt-2" dangerouslySetInnerHTML={{ __html: summary.content }} />
                     {summary.quizData && summary.outputFormat === 'qcm' && (
-                        <div className="mt-4 border-t pt-3">
+                        <div className="mt-4 border-t border-border pt-3">
                             <h5 className="font-semibold mb-2 text-sm">Questions du Quiz :</h5>
                             {summary.quizData.questions.map((q, idx) => (
-                                <div key={q.id} className="mb-3 text-xs p-2 border rounded-md bg-muted/50">
+                                <div key={q.id} className="mb-3 text-xs p-2 border border-border rounded-md bg-muted/50">
                                     <p className="font-medium">Q{idx+1}: {q.questionText}</p>
                                     <ul className="list-disc list-inside pl-2 mt-1">
                                         {q.options.map(opt => (
-                                            <li key={opt.id} className={opt.id === q.correctAnswerId ? 'text-green-600 font-semibold' : ''}>
+                                            <li key={opt.id} className={opt.id === q.correctAnswerId ? 'text-green-600 dark:text-green-400 font-semibold' : ''}>
                                                 {opt.text} {opt.id === q.correctAnswerId ? '(Correct)' : ''}
                                             </li>
                                         ))}
@@ -282,15 +280,12 @@ export function UserProfile() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteSummary(summary.id)} className="bg-destructive hover:bg-destructive/90">
+                            <AlertDialogAction onClick={() => handleDeleteSummary(summary.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
                               Oui, supprimer
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                      {/* <Button variant="outline" size="sm" onClick={() => window.alert("Ré-éditer ou partager sera bientôt disponible")}>
-                        <ExternalLink className="mr-1.5 h-4 w-4" /> Options
-                      </Button> */}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -303,19 +298,33 @@ export function UserProfile() {
        <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center"><Settings className="mr-3 h-7 w-7 text-primary" />Préférences</CardTitle>
-          <CardDescription>Personnalisez votre expérience (Fonctionnalité à venir).</CardDescription>
+          <CardDescription>Personnalisez l'apparence et le comportement de l'application.</CardDescription>
         </CardHeader>
-        <CardContent>
-           <div className="p-6 bg-muted/30 rounded-md text-center">
-            <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Par exemple : langue par défaut pour les résumés, thème sombre/clair, etc.</p>
+        <CardContent className="space-y-6">
+           <div className="flex items-center justify-between p-4 bg-muted/20 dark:bg-muted/10 rounded-lg border border-border">
+            <div className="flex items-center">
+              {theme === 'light' ? <Sun className="mr-3 h-6 w-6 text-yellow-500" /> : <Moon className="mr-3 h-6 w-6 text-sky-400" />}
+              <Label htmlFor="theme-switch" className="text-base font-medium">
+                Thème {theme === 'light' ? 'Clair' : 'Sombre'}
+              </Label>
+            </div>
+            <Switch
+              id="theme-switch"
+              checked={theme === 'dark'}
+              onCheckedChange={toggleTheme}
+              aria-label="Changer de thème"
+            />
+          </div>
+          <div className="p-6 bg-muted/10 dark:bg-muted/5 rounded-lg text-center border border-dashed border-border">
+            <Settings className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">D'autres options de personnalisation (langue par défaut, notifications, etc.) apparaîtront ici bientôt.</p>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-// Ajoutez ce style global si ce n'est pas déjà fait dans un fichier CSS global ou SummarizerClientWrapper
+// Styles globaux pour `.prose` et `.result-content-area` (si ce n'est pas déjà géré)
 // <style jsx global>{`
 //   .result-content-area ul, .result-content-area ol {
 //     list-style-position: inside;
@@ -334,4 +343,3 @@ export function UserProfile() {
 //     margin-bottom: 1em;
 //   }
 // `}</style>
-
