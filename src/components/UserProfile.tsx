@@ -320,7 +320,7 @@ export function UserProfile() {
         </CardContent>
       </Card>
 
-       <Card className="shadow-lg">
+       <Card className="shadow-lg" id="preferences-section">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center"><Settings className="mr-3 h-7 w-7 text-primary" />Préférences</CardTitle>
           <CardDescription>Personnalisez l'apparence et le comportement de l'application.</CardDescription>
@@ -409,4 +409,3 @@ export function UserProfile() {
     </div>
   );
 }
-

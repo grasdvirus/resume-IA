@@ -177,7 +177,12 @@ export function ResumAIHeader() {
               </Link>
             </li>
              <li className={`py-2 px-3 border-b border-border text-base`}>
-              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/profile#preferences-section" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <Settings className="mr-2 h-5 w-5"/> Préférences
+              </Link>
+            </li>
+             <li className={`py-2 px-3 border-b border-border text-base`}>
+              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}> {/* Consider a specific ID like #my-summaries-section if needed */}
                 <FolderArchive className="mr-2 h-5 w-5"/> Mes Résumés
               </Link>
             </li>
@@ -215,12 +220,14 @@ export function ResumAIHeader() {
                   Profil
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" disabled>
-                <Settings className="mr-2 h-4 w-4" />
-                Paramètres (bientôt)
+              <DropdownMenuItem asChild>
+                <Link href="/profile#preferences-section" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Préférences
+                </Link>
               </DropdownMenuItem>
                <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer">
+                <Link href="/profile" className="cursor-pointer"> {/* Consider a specific ID like #my-summaries-section if needed */}
                   <FolderArchive className="mr-2 h-4 w-4" />
                   Mes Résumés
                 </Link>
@@ -258,13 +265,10 @@ export function ResumAIHeader() {
           </li>
         </>
       ) : (
-        // Correctly handling the loading state for the entire authLinks section
         <li className="flex items-center justify-center md:w-auto md:px-0">
-           {/* Desktop loader */}
           <div className="hidden md:block">
              <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-          {/* Mobile loader placeholder (will be inside the sheet if open, or not visible if menu closed) */}
            <div className="md:hidden">
              <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
@@ -282,18 +286,16 @@ export function ResumAIHeader() {
           <span className="text-2xl font-bold font-headline">Résumé IA</span>
         </Link>
 
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-1">
             <ul className="flex items-center gap-x-1 lg:gap-x-2">
                 {commonNavLinks()}
             </ul>
-            <div className="h-6 w-px bg-border mx-2 lg:mx-3"></div> {/* Separator */}
+            <div className="h-6 w-px bg-border mx-2 lg:mx-3"></div> 
             <ul className="flex items-center gap-x-1 lg:gap-x-2">
                  {authLinks()}
             </ul>
         </div>
         
-        {/* Mobile Navigation Trigger */}
         <div className="md:hidden">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
