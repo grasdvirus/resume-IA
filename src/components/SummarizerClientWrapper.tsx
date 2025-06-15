@@ -17,7 +17,8 @@ import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
+import { useSettings } from '@/contexts/SettingsContext';
+import * as pdfjsLib from 'pdfjs-dist';
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
@@ -54,7 +55,7 @@ const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value
 
 export function SummarizerClientWrapper() {
   const { user } = useAuth();
-  const { defaultLanguage, notificationPreferences } = useSettings(); // Use settings
+  const { defaultLanguage, notificationPreferences } = useSettings();
   const [activeTab, setActiveTab] = useState<InputType>("pdf");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfFileName, setPdfFileName] = useState<string>("");
@@ -84,6 +85,11 @@ export function SummarizerClientWrapper() {
 
   useEffect(() => {
     setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
+     // Configure le worker pour pdfjs-dist. Utiliser un CDN pour la simplicité.
+    // Remplacer par la version exacte de pdfjs-dist installée (par exemple, 4.3.136)
+    // Vérifiez la version dans package.json après l'installation.
+    const pdfJsVersion = "4.3.136"; // Mettez à jour si la version installée est différente
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJsVersion}/pdf.worker.min.mjs`;
     
     const handleSpeechEnd = () => setIsSpeaking(false);
 
@@ -97,13 +103,10 @@ export function SummarizerClientWrapper() {
     };
   }, []);
   
-  // Update selected language if defaultLanguage from settings changes
-  // This effect will run when defaultLanguage (from context) changes.
   useEffect(() => {
     setSelectedLanguage(defaultLanguage);
   }, [defaultLanguage]);
 
-  // Reset summarySaved when input changes
   useEffect(() => {
     setSummarySaved(false);
   }, [pdfFile, videoUrl, inputText, selectedOutputFormat, selectedLanguage]);
@@ -160,6 +163,18 @@ export function SummarizerClientWrapper() {
     setIsDragging(false);
   };
   
+  async function extractTextFromPdf(file: File): Promise<string> {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      fullText += textContent.items.map(item => ('str' in item ? item.str : '')).join(" ") + "\n";
+    }
+    return fullText;
+  }
+
   const handleSubmit = async () => {
     setIsProcessing(true);
     setSummaryResult(null);
@@ -176,6 +191,8 @@ export function SummarizerClientWrapper() {
 
     let currentInputType = activeTab as ActionInputType;
     let currentInputValue = "";
+    let currentPdfFileNameForAction = "";
+
 
     if (activeTab === "pdf") {
       if (!pdfFile) {
@@ -183,8 +200,23 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
-      currentInputType = 'pdf';
-      currentInputValue = pdfFile.name; 
+      currentInputType = 'pdf'; // Garder 'pdf' pour que l'action sache l'origine
+      currentPdfFileNameForAction = pdfFile.name;
+      try {
+        toast({ title: "Lecture du PDF...", description: "Extraction du texte en cours. Cela peut prendre un moment pour les gros fichiers." });
+        const extractedText = await extractTextFromPdf(pdfFile);
+        if (!extractedText.trim()) {
+            setError("Impossible d'extraire le texte de ce PDF ou le PDF est vide de texte.");
+            setIsProcessing(false);
+            return;
+        }
+        currentInputValue = extractedText; // Le texte extrait est maintenant l'inputValue
+      } catch (pdfError: any) {
+        console.error("Error extracting PDF text:", pdfError);
+        setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
+        setIsProcessing(false);
+        return;
+      }
     } else if (activeTab === "video") {
       if (!videoUrl.trim()) {
         setError("Veuillez entrer une URL YouTube.");
@@ -217,9 +249,10 @@ export function SummarizerClientWrapper() {
     try {
       const result = await generateSummaryAction(
         currentInputType, 
-        currentInputValue, 
+        currentInputType === 'pdf' ? currentPdfFileNameForAction : currentInputValue, // Si PDF, inputValue est le nom du fichier pour l'action
         selectedOutputFormat as ActionOutputFormat, 
-        selectedLanguage as ActionTargetLanguage
+        selectedLanguage as ActionTargetLanguage,
+        currentInputType === 'pdf' ? currentInputValue : undefined // Passer le texte extrait si PDF
       );
       setSummaryResult(result);
     } catch (e: any) {
@@ -237,7 +270,7 @@ export function SummarizerClientWrapper() {
     setPdfFileName("");
     setVideoUrl("");
     setInputText("");
-    setSelectedLanguage(defaultLanguage); // Reset to default language from settings
+    setSelectedLanguage(defaultLanguage); 
     setUserAnswers({});
     setQuizScore(null);
     setShowQuizResults(false);
@@ -258,18 +291,18 @@ export function SummarizerClientWrapper() {
     }
     setIsSaving(true);
 
-    let currentInputValue = "";
-    if (activeTab === "pdf" && pdfFileName) currentInputValue = pdfFileName;
-    else if (activeTab === "video") currentInputValue = videoUrl;
-    else if (activeTab === "text") currentInputValue = inputText;
+    let originalInputValueForSave = "";
+    if (activeTab === "pdf" && pdfFileName) originalInputValueForSave = pdfFileName; // On sauvegarde le nom du fichier PDF
+    else if (activeTab === "video") originalInputValueForSave = videoUrl;
+    else if (activeTab === "text") originalInputValueForSave = inputText;
     
     const summaryToSave: UserSummaryToSave = {
       userId: user.uid,
       title: summaryResult.title,
-      content: summaryResult.content,
+      content: summaryResult.content, // Le contenu HTML/texte du résumé
       quizData: summaryResult.quizData,
-      inputType: activeTab as ActionInputType,
-      inputValue: currentInputValue,
+      inputType: activeTab as ActionInputType, // 'pdf', 'youtube', 'text'
+      inputValue: originalInputValueForSave, // Nom du PDF, URL, ou texte original
       outputFormat: selectedOutputFormat as ActionOutputFormat,
       targetLanguage: selectedLanguage as ActionTargetLanguage,
     };
@@ -353,7 +386,6 @@ export function SummarizerClientWrapper() {
           toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
         }
       } catch (err) {
-        // Silently fail or log error if needed for debugging
         console.warn("Share API error:", err);
       }
     } else {
@@ -363,7 +395,7 @@ export function SummarizerClientWrapper() {
           toast({ title: "Copié dans le presse-papiers", description: "Le résumé a été copié. Vous pouvez le coller où vous voulez." });
         }
       } catch (err) {
-        if (notificationPreferences.shareSuccess) { // Still show toast if preference is on, even if copy failed (might be due to browser restrictions)
+        if (notificationPreferences.shareSuccess) { 
           toast({ title: "Erreur de copie", description: "Impossible de copier le résumé dans le presse-papiers.", variant: "destructive" });
         }
       }
@@ -373,7 +405,6 @@ export function SummarizerClientWrapper() {
   const handleExportPdf = () => {
     if (!summaryResult) return;
     window.print();
-    // No toast here as it's a browser action, not a direct app action with immediate feedback needed via toast
   };
   
   const handleToggleAudio = () => {
@@ -532,6 +563,7 @@ export function SummarizerClientWrapper() {
               <Loader2 className="mx-auto h-16 w-16 text-primary animate-spin mb-6" />
               <h3 className="text-2xl font-semibold font-headline mb-2">Analyse en cours...</h3>
               <p className="text-muted-foreground">Notre IA traite votre contenu, cela peut prendre quelques instants.</p>
+              {activeTab === 'pdf' && pdfFile && <p className="text-sm text-muted-foreground mt-2">Extraction du texte du PDF : {pdfFileName}</p>}
             </div>
           )}
 

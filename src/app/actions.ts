@@ -7,12 +7,12 @@ import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { z } from 'zod';
-import { db } from '@/lib/firebase'; // db is now Realtime Database instance
-import { ref, push, get, child, serverTimestamp as rtdbServerTimestamp, query, orderByChild, equalTo } from 'firebase/database'; // Realtime Database imports
+import { db } from '@/lib/firebase'; 
+import { ref, push, get, child, serverTimestamp as rtdbServerTimestamp, query, orderByChild, equalTo } from 'firebase/database'; 
 
 export interface SummaryResult {
   title: string;
-  content: string; // HTML content or base text for QCM
+  content: string; 
   quizData?: QuizData;
 }
 
@@ -29,42 +29,44 @@ export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
 // This function will be called from the client component
 export async function generateSummaryAction(
   inputType: InputType,
-  inputValue: string, // text content, youtube URL, or PDF file name (for mock)
+  inputValueOrFileName: string, // text content, youtube URL, or PDF file name
   outputFormat: OutputFormat,
-  targetLanguage: TargetLanguage
+  targetLanguage: TargetLanguage,
+  pdfExtractedText?: string // Texte extrait du PDF, si inputType est 'pdf'
 ): Promise<SummaryResult> {
-  let summaryForProcessing = ''; // This will hold the text to be processed by AI (translation, QCM)
+  let summaryForProcessing = ''; 
   let sourceName = '';
   let translatedLabel = "";
   let quizData: QuizData | undefined = undefined;
-  let processedSummaryForOutput: string; // This will hold the final text content (possibly translated) for output formats
-
-  const pdfDisclaimerHtml = (pdfFileName: string) => `
-  <p style="background-color: #fff9c4; border-left: 4px solid #ffeb3b; padding: 1em; margin-bottom: 1em;">
-    <strong>Note Importante : Ceci est une DÉMONSTRATION du traitement des PDF.</strong><br/>
-    Le système actuel <em>ne lit pas et n'analyse pas le contenu du fichier PDF "${pdfFileName}"</em>. Le contenu ci-dessous est basé sur un exemple générique pour illustrer le format et le flux.
-  </p>`;
+  let processedSummaryForOutput: string; 
 
   try {
     if (inputType === 'text') {
       sourceName = 'Texte personnalisé';
-      if (inputValue.length < 50) throw new Error('Le texte doit contenir au moins 50 caractères.');
-      const result = await summarizeText({ text: inputValue });
+      if (inputValueOrFileName.length < 50) throw new Error('Le texte doit contenir au moins 50 caractères.');
+      const result = await summarizeText({ text: inputValueOrFileName });
       summaryForProcessing = result.summary;
     } else if (inputType === 'youtube') {
       sourceName = 'Vidéo YouTube';
-      if (!inputValue.includes('youtube.com/') && !inputValue.includes('youtu.be/')) {
+      if (!inputValueOrFileName.includes('youtube.com/') && !inputValueOrFileName.includes('youtu.be/')) {
         throw new Error('Veuillez entrer une URL YouTube valide.');
       }
-      const result = await summarizeYouTubeVideo({ youtubeVideoUrl: inputValue });
+      const result = await summarizeYouTubeVideo({ youtubeVideoUrl: inputValueOrFileName });
       summaryForProcessing = result.summary;
     } else if (inputType === 'pdf') {
-      sourceName = inputValue; // filename
-      // This is the example text that will be "processed" (translated, used for QCM) for the PDF demo
-      summaryForProcessing = `Ce document fictif traite de l'optimisation des processus métier grâce à l'intelligence artificielle. Il aborde les concepts clés, les méthodologies d'implémentation, et présente une étude de cas illustrant les bénéfices potentiels tels que la réduction des coûts et l'amélioration de l'efficacité. Les défis et les considérations éthiques sont également discutés. L'objectif principal est de démontrer comment l'IA peut transformer les opérations d'une entreprise.`;
+      sourceName = inputValueOrFileName; // filename
+      if (pdfExtractedText && pdfExtractedText.trim() !== "") {
+        const result = await summarizeText({ text: pdfExtractedText });
+        summaryForProcessing = result.summary;
+      } else {
+        // Fallback si l'extraction PDF a échoué côté client ou n'a pas renvoyé de texte
+        console.warn("generateSummaryAction: PDF input type but no extracted text provided. Using fallback text.");
+        summaryForProcessing = `Le traitement du fichier PDF "${inputValueOrFileName}" n'a pas pu extraire de contenu textuel. Ceci est un texte d'exemple pour illustrer la fonctionnalité. L'objectif de ce document fictif est de démontrer comment l'IA peut transformer les opérations d'une entreprise.`;
+        sourceName += " (Erreur d'extraction - Démo)";
+      }
     }
 
-    processedSummaryForOutput = summaryForProcessing; // Initialize with the base summary
+    processedSummaryForOutput = summaryForProcessing; 
 
     if (targetLanguage !== 'fr' && processedSummaryForOutput) {
       const translationResult = await translateText({ textToTranslate: processedSummaryForOutput, targetLanguage: targetLanguage });
@@ -84,59 +86,54 @@ export async function generateSummaryAction(
     throw new Error(errorMessage);
   }
   
-  // Construct the final output HTML
   const finalContentHtml = processedSummaryForOutput.replace(/\n/g, '<br/>');
 
   if (outputFormat === 'resume') {
     return {
-      title: `Résumé ${inputType === 'pdf' ? '(Démo PDF) ' : ''}- ${sourceName}${translatedLabel}`,
+      title: `Résumé - ${sourceName}${translatedLabel}`,
       content: `
-        ${inputType === 'pdf' ? pdfDisclaimerHtml(sourceName) : ''}
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📋 Points clés principaux :</h4>
         <p>${finalContentHtml}</p>
         <h4 style="font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">🎯 Conclusion :</h4>
-        <p>Cette synthèse a été générée ${inputType === 'pdf' ? '(sur la base d\'un exemple) ' : ''}et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis.</p>
+        <p>Cette synthèse a été générée et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis.</p>
       `,
     };
   } else if (outputFormat === 'fiche') {
     return {
-      title: `Fiche de révision ${inputType === 'pdf' ? '(Démo PDF) ' : ''}- ${sourceName}${translatedLabel}`,
+      title: `Fiche de révision - ${sourceName}${translatedLabel}`,
       content: `
-        ${inputType === 'pdf' ? pdfDisclaimerHtml(sourceName) : ''}
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📚 FICHE DE RÉVISION ${inputType === 'pdf' ? '(Exemple)' : ''}</h4>
+        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📚 FICHE DE RÉVISION</h4>
         <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <h5 style="font-weight: bold;">🔑 MOTS-CLÉS ${inputType === 'pdf' ? '(Exemple)' : '(Exemple basé sur le résumé)'}</h5>
-            <p><strong>${inputType === 'pdf' ? 'Optimisation • IA • Processus • Efficacité' : 'Innovation • Méthodologie • Optimisation • Performance'}</strong> (Ces mots seraient extraits dynamiquement dans une version avancée)</p>
+            <h5 style="font-weight: bold;">🔑 MOTS-CLÉS (Exemple basé sur le résumé)</h5>
+            <p><strong>Innovation • Méthodologie • Optimisation • Performance</strong> (Ces mots seraient extraits dynamiquement dans une version avancée)</p>
         </div>
-        <h5 style="font-weight: bold;">📖 CONTENU PRINCIPAL ${inputType === 'pdf' ? 'DE L\'EXEMPLE' : ''}</h5>
+        <h5 style="font-weight: bold;">📖 CONTENU PRINCIPAL</h5>
         <p>${finalContentHtml}</p>
         <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <h5 style="font-weight: bold;">💡 À RETENIR ${inputType === 'pdf' ? '(Exemple)' : '(Exemple)'}</h5>
-            <p>Le point le plus crucial à retenir de ce${inputType === 'pdf' ? 't exemple' : ' résumé'} est [suggestion basée sur le début : ${finalContentHtml.substring(0, 100)}...].</p>
+            <h5 style="font-weight: bold;">💡 À RETENIR (Exemple)</h5>
+            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début : ${finalContentHtml.substring(0, 100)}...].</p>
         </div>
       `
     };
   } else if (outputFormat === 'qcm') {
     return {
-      title: `QCM ${inputType === 'pdf' ? '(Démo PDF) ' : ''}- ${sourceName}${translatedLabel}`,
+      title: `QCM - ${sourceName}${translatedLabel}`,
       content: `
-        ${inputType === 'pdf' ? pdfDisclaimerHtml(sourceName) : ''}
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📝 Contexte du QCM (${inputType === 'pdf' ? 'basé sur l\'exemple PDF' : 'basé sur le résumé'}) :</h4>
+        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📝 Contexte du QCM (basé sur le résumé) :</h4>
         <div style="background: #f9f9f9; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-height: 200px; overflow-y: auto;">
          <p>${finalContentHtml}</p>
         </div>
-        <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances ${inputType === 'pdf' ? '(sur l\'exemple)' : ''}:</h4>
+        <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances :</h4>
       `, 
       quizData: quizData,
     };
   } else if (outputFormat === 'audio') {
     return {
-      title: `Version Audio ${inputType === 'pdf' ? '(Démo PDF) ' : ''}- ${sourceName}${translatedLabel}`,
+      title: `Version Audio - ${sourceName}${translatedLabel}`,
       content: `
-        ${inputType === 'pdf' ? pdfDisclaimerHtml(sourceName) : ''}
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio ${inputType === 'pdf' ? '(de l\'exemple)' : ''}</h4>
-        <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale ${inputType === 'pdf' ? 'de l\'exemple PDF' : 'du résumé'}.</p>
-        <p>Contenu textuel ${inputType === 'pdf' ? 'de l\'exemple' : 'du résumé'} :</p>
+        <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio</h4>
+        <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale du résumé.</p>
+        <p>Contenu textuel du résumé :</p>
         <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
           ${finalContentHtml}
         </blockquote>
@@ -144,17 +141,16 @@ export async function generateSummaryAction(
     };
   }
 
-  // Fallback (should not be reached if outputFormat is always one of the above)
   return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: finalContentHtml };
 }
 
 export interface UserSummaryToSave {
   userId: string;
   title: string;
-  content: string; // HTML content
+  content: string; 
   quizData?: QuizData;
   inputType: InputType;
-  inputValue: string; // Original input (text, URL, or PDF filename)
+  inputValue: string; 
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
   createdAt?: number; 
@@ -162,7 +158,7 @@ export interface UserSummaryToSave {
 
 export interface UserSavedSummary extends Omit<UserSummaryToSave, 'createdAt'> {
   id: string;
-  createdAt: string; // ISO string for client consumption
+  createdAt: string; 
 }
 
 
@@ -205,7 +201,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
 
     for (const key in summariesData) {
       const data = summariesData[key];
-      let createdAtISO = new Date().toISOString(); // Default
+      let createdAtISO = new Date().toISOString(); 
       if (data.createdAt && typeof data.createdAt === 'number') {
         createdAtISO = new Date(data.createdAt).toISOString();
       } else if (data.createdAt) {
@@ -243,4 +239,3 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     return []; 
   }
 }
-
