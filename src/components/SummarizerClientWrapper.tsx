@@ -191,7 +191,7 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
-      const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]{11}(&\S*)?$/;
+      const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]{11}((\?|&)\S*)?$/;
       if (!youtubeRegex.test(videoUrl)) {
         setError("Veuillez entrer une URL YouTube valide (ex: youtube.com/watch?v=... ou youtu.be/...).");
         setIsProcessing(false);
