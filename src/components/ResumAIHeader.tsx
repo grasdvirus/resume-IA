@@ -182,7 +182,7 @@ export function ResumAIHeader() {
               </Link>
             </li>
              <li className={`py-2 px-3 border-b border-border text-base`}>
-              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}> {/* Consider a specific ID like #my-summaries-section if needed */}
+              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
                 <FolderArchive className="mr-2 h-5 w-5"/> Mes Résumés
               </Link>
             </li>
@@ -227,7 +227,7 @@ export function ResumAIHeader() {
                 </Link>
               </DropdownMenuItem>
                <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer"> {/* Consider a specific ID like #my-summaries-section if needed */}
+                <Link href="/profile" className="cursor-pointer"> 
                   <FolderArchive className="mr-2 h-4 w-4" />
                   Mes Résumés
                 </Link>
