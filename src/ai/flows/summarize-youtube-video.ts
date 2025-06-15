@@ -41,10 +41,8 @@ const prompt = ai.definePrompt({
   name: 'summarizeYouTubeVideoPrompt',
   input: {schema: SummarizeYouTubeVideoInputSchema},
   output: {schema: SummarizeYouTubeVideoOutputSchema},
-  prompt: `You are an AI assistant tasked with summarizing YouTube videos *in French*.
-
-You will be given a YouTube video URL, and potentially its title and description if they could be fetched.
-Please generate a concise summary in French.
+  prompt: `You are an AI assistant. Your task is to generate a concise summary *in French* of a YouTube video, based *solely* on the provided URL, title, and description.
+Do not attempt to access the video content directly. Your summary must be derived from the text information given to you.
 
 YouTube Video URL: {{{youtubeVideoUrl}}}
 
@@ -53,19 +51,24 @@ Video Title: {{{videoTitle}}}
 {{/if}}
 
 {{#if videoDescription}}
-Video Description:
+Video Description (use this as the primary source for your summary):
 {{{videoDescription}}}
 ---
-Based on the provided information (URL, title, and description if available), summarize the video.
-If title and description are not provided, do your best based on the URL alone, but state that information was limited.
+Based *only* on the title and description above (if available), please:
+1. Identify the main subject of the video.
+2. Describe the likely target audience.
+3. List the key topics or questions the video probably addresses, according to its title and description.
+Present this as a coherent paragraph.
+
+If the description is very short or uninformative, state that the summary is primarily based on the title.
+If title and description are not provided, clearly state that the summary is speculative and based only on the URL.
 {{else}}
 ---
-The title and description for this video could not be fetched.
-Please summarize based on the YouTube Video URL: {{{youtubeVideoUrl}}} as best as possible.
-Acknowledge that the summary is based on limited information if applicable.
+The title and description for this video could not be fetched or were not provided.
+Based *only* on the YouTube Video URL: {{{youtubeVideoUrl}}}, provide a speculative summary. Clearly state that this summary is speculative due to limited information.
 {{/if}}
 
-Focus on extracting key information. Your summary should reflect the main topics and purpose of the video.
+The summary should be in French.
 `,
 });
 
@@ -108,12 +111,12 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     console.log('[GenkitFlow:summarizeYouTubeVideo] Output from Genkit prompt:', output);
 
 
-    if (!output || !output.summary) {
+    if (!output || !output.summary || output.summary.trim() === "") {
       let fallbackMessage = "Impossible de générer un résumé pour cette vidéo. ";
       if (videoTitle && videoDescription) {
-        fallbackMessage += "Les détails ont été récupérés mais la génération du résumé par l'IA a échoué.";
+        fallbackMessage += "Les détails ont été récupérés mais la génération du résumé par l'IA a échoué ou produit un résultat vide.";
       } else if (videoId) {
-        fallbackMessage += "Les détails de la vidéo n'ont pas pu être récupérés via l'API YouTube (vérifiez la clé API et l'ID de la vidéo). Le résumé est basé sur des informations limitées.";
+        fallbackMessage += "Les détails de la vidéo (titre, description) n'ont pas pu être récupérés via l'API YouTube (vérifiez la clé API, l'ID de la vidéo, ou la description est peut-être vide). Le résumé est basé sur des informations limitées.";
       } else {
         fallbackMessage += "L'URL de la vidéo semble invalide ou les informations sont insuffisantes.";
       }
