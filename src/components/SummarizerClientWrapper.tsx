@@ -85,14 +85,29 @@ export function SummarizerClientWrapper() {
 
   useEffect(() => {
     setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
-     // Configure le worker pour pdfjs-dist. Utiliser un CDN pour la simplicité.
-    // Remplacer par la version exacte de pdfjs-dist installée (par exemple, 4.3.136)
-    // Vérifiez la version dans package.json après l'installation.
-    const pdfJsVersion = "4.3.136"; // Mettez à jour si la version installée est différente
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJsVersion}/pdf.worker.min.mjs`;
+
+    // Configure pdfjs-dist worker
+    // Check if it's already configured to avoid re-setting if this component re-mounts
+    // or if some other part of the app might configure it.
+    if (typeof window !== 'undefined' && !(window as any).pdfjsWorkerSrcConfigured) {
+      const version = pdfjsLib.version;
+      if (version) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+        (window as any).pdfjsWorkerSrcConfigured = true; // Mark as configured
+        console.log(`PDF.js worker configured dynamically with version: ${version}`);
+      } else {
+        // This case should ideally not happen if pdfjs-dist is imported correctly.
+        console.error("Failed to get pdfjsLib.version. PDF functionality might be impaired. Falling back to a default worker version (4.3.136).");
+        // As a last resort, use a known good version. The package.json suggests ^4.3.136.
+        const fallbackVersion = "4.3.136";
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
+        (window as any).pdfjsWorkerSrcConfigured = true;
+      }
+    }
     
     const handleSpeechEnd = () => setIsSpeaking(false);
 
+    // Cleanup for speech synthesis
     return () => {
       if (window.speechSynthesis && window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
@@ -101,7 +116,7 @@ export function SummarizerClientWrapper() {
         utteranceRef.current.removeEventListener('end', handleSpeechEnd);
       }
     };
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
   
   useEffect(() => {
     setSelectedLanguage(defaultLanguage);
@@ -190,8 +205,8 @@ export function SummarizerClientWrapper() {
     }
 
     let currentInputType = activeTab as ActionInputType;
-    let currentInputValue = "";
-    let currentPdfFileNameForAction = "";
+    let currentInputValue = ""; // This will hold extracted text for PDF, or URL/raw text for others
+    let currentPdfFileNameForAction = ""; // Only used if input is PDF, for title generation
 
 
     if (activeTab === "pdf") {
@@ -200,8 +215,8 @@ export function SummarizerClientWrapper() {
         setIsProcessing(false);
         return;
       }
-      currentInputType = 'pdf'; // Garder 'pdf' pour que l'action sache l'origine
-      currentPdfFileNameForAction = pdfFile.name;
+      currentInputType = 'pdf'; 
+      currentPdfFileNameForAction = pdfFile.name; // Keep filename for title/metadata
       try {
         toast({ title: "Lecture du PDF...", description: "Extraction du texte en cours. Cela peut prendre un moment pour les gros fichiers." });
         const extractedText = await extractTextFromPdf(pdfFile);
@@ -210,7 +225,7 @@ export function SummarizerClientWrapper() {
             setIsProcessing(false);
             return;
         }
-        currentInputValue = extractedText; // Le texte extrait est maintenant l'inputValue
+        currentInputValue = extractedText; // The extracted text is the primary input for AI
       } catch (pdfError: any) {
         console.error("Error extracting PDF text:", pdfError);
         setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
@@ -249,10 +264,10 @@ export function SummarizerClientWrapper() {
     try {
       const result = await generateSummaryAction(
         currentInputType, 
-        currentInputType === 'pdf' ? currentPdfFileNameForAction : currentInputValue, // Si PDF, inputValue est le nom du fichier pour l'action
+        (currentInputType === 'pdf' && currentPdfFileNameForAction) ? currentPdfFileNameForAction : currentInputValue, 
         selectedOutputFormat as ActionOutputFormat, 
         selectedLanguage as ActionTargetLanguage,
-        currentInputType === 'pdf' ? currentInputValue : undefined // Passer le texte extrait si PDF
+        (currentInputType === 'pdf') ? currentInputValue : undefined // Pass extracted text if PDF
       );
       setSummaryResult(result);
     } catch (e: any) {
@@ -726,3 +741,4 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
+
