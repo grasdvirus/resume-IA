@@ -22,8 +22,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
-type TargetLanguage = ActionTargetLanguage; // Use the extended type from actions
-type SummaryLength = ActionSummaryLength; // Use the type from actions
+type TargetLanguage = ActionTargetLanguage; 
+type SummaryLength = ActionSummaryLength; 
 
 interface OptionCardProps {
   icon: React.ReactNode;
@@ -75,8 +75,10 @@ export function SummarizerClientWrapper() {
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
+  const [speechRate, setSpeechRate] = useState<number>(1);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const manualStopRef = useRef(false); 
+  const utteranceEventHandlersAttachedRef = useRef(false);
 
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [quizScore, setQuizScore] = useState<number | null>(null);
@@ -88,6 +90,22 @@ export function SummarizerClientWrapper() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  const onSpeechEnd = useCallback(() => {
+    setIsSpeaking(false);
+    manualStopRef.current = false; 
+    utteranceEventHandlersAttachedRef.current = false;
+  }, []);
+
+  const onSpeechError = useCallback((event: SpeechSynthesisErrorEvent) => {
+    console.error('SpeechSynthesisUtterance.onerror', event);
+    setIsSpeaking(false);
+    if (!manualStopRef.current) { 
+      toast({ title: "Erreur de lecture", description: `Impossible de lire le résumé. Erreur: ${event.error}`, variant: "destructive" });
+    }
+    manualStopRef.current = false; 
+    utteranceEventHandlersAttachedRef.current = false;
+  }, [toast]);
 
   useEffect(() => {
     setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
@@ -96,30 +114,25 @@ export function SummarizerClientWrapper() {
       const version = pdfjsLib.version;
       if (version) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
-        (window as any).pdfjsWorkerSrcConfigured = true; 
       } else {
         const fallbackVersion = "4.3.136"; 
         console.warn(`pdfjsLib.version was not found, using fallback worker version ${fallbackVersion}`);
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
-        (window as any).pdfjsWorkerSrcConfigured = true;
       }
+      (window as any).pdfjsWorkerSrcConfigured = true; 
     }
     
-    const handleSpeechEnd = () => {
-        manualStopRef.current = false;
-        setIsSpeaking(false);
-    };
-
     return () => {
       if (window.speechSynthesis && window.speechSynthesis.speaking) {
         manualStopRef.current = true;
         window.speechSynthesis.cancel();
       }
       if (utteranceRef.current) {
-        utteranceRef.current.removeEventListener('end', handleSpeechEnd);
+        utteranceRef.current.removeEventListener('end', onSpeechEnd);
+        utteranceRef.current.removeEventListener('error', onSpeechError);
       }
     };
-  }, []); 
+  }, [onSpeechEnd, onSpeechError]); 
   
   useEffect(() => {
     setSelectedLanguage(defaultLanguage);
@@ -201,9 +214,8 @@ export function SummarizerClientWrapper() {
     setQuizScore(null);
     setShowQuizResults(false);
     setSummarySaved(false);
-    manualStopRef.current = false;
 
-     if (window.speechSynthesis && window.speechSynthesis.speaking) {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
       manualStopRef.current = true;
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -432,6 +444,34 @@ export function SummarizerClientWrapper() {
     if (!summaryResult) return;
     window.print();
   };
+
+  const startSpeech = useCallback((text: string, rate: number) => {
+    if (!speechSynthesisSupported) return;
+
+    if (utteranceRef.current && utteranceEventHandlersAttachedRef.current) {
+        utteranceRef.current.removeEventListener('end', onSpeechEnd);
+        utteranceRef.current.removeEventListener('error', onSpeechError);
+        utteranceEventHandlersAttachedRef.current = false;
+    }
+    if(window.speechSynthesis.speaking) { 
+        manualStopRef.current = true; // Stop any ongoing speech before starting new
+        window.speechSynthesis.cancel();
+    }
+
+    manualStopRef.current = false;
+    const newUtterance = new SpeechSynthesisUtterance(text);
+    const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP', ko: 'ko-KR' };
+    newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
+    newUtterance.rate = rate;
+
+    newUtterance.onend = onSpeechEnd;
+    newUtterance.onerror = onSpeechError;
+    utteranceEventHandlersAttachedRef.current = true;
+    
+    utteranceRef.current = newUtterance;
+    window.speechSynthesis.speak(newUtterance);
+    setIsSpeaking(true);
+  }, [speechSynthesisSupported, selectedLanguage, onSpeechEnd, onSpeechError]);
   
   const handleToggleAudio = () => {
     if (!speechSynthesisSupported || !summaryResult) {
@@ -444,42 +484,12 @@ export function SummarizerClientWrapper() {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     } else {
-      manualStopRef.current = false;
       const textToSpeak = getPlainTextFromResult();
       if (!textToSpeak) {
         toast({ title: "Aucun texte à lire", description: "Le contenu du résumé est vide.", variant: "destructive" });
         return;
       }
-      
-      const newUtterance = new SpeechSynthesisUtterance(textToSpeak);
-      const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP', ko: 'ko-KR' };
-      newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
-      
-      const handleSpeechEndEvent = () => {
-          setIsSpeaking(false);
-          manualStopRef.current = false;
-      };
-
-      if (utteranceRef.current) {
-        utteranceRef.current.removeEventListener('end', handleSpeechEndEvent);
-        utteranceRef.current.removeEventListener('error', handleSpeechErrorEvent);
-      }
-      
-      const handleSpeechErrorEvent = (event: SpeechSynthesisErrorEvent) => {
-        console.error('SpeechSynthesisUtterance.onerror', event);
-        setIsSpeaking(false);
-        if (!manualStopRef.current) { // Only show toast if not a manual stop
-          toast({ title: "Erreur de lecture", description: `Impossible de lire le résumé. Erreur: ${event.error}`, variant: "destructive" });
-        }
-        manualStopRef.current = false; // Reset flag
-      };
-      
-      newUtterance.onend = handleSpeechEndEvent;
-      newUtterance.onerror = handleSpeechErrorEvent;
-      
-      utteranceRef.current = newUtterance;
-      window.speechSynthesis.speak(newUtterance);
-      setIsSpeaking(true);
+      startSpeech(textToSpeak, speechRate);
     }
   };
 
@@ -704,26 +714,61 @@ export function SummarizerClientWrapper() {
                 </Card>
               )}
 
-              <div className="flex flex-wrap gap-3 justify-center">
+              <div className="flex flex-wrap gap-3 justify-center items-end">
                 {user && (
                   <Button 
                     onClick={handleSaveSummary} 
                     variant="default" 
-                    className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out"
+                    className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out h-10"
                     disabled={isSaving || summarySaved}
                   >
                     {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                    {summarySaved ? "Résumé Sauvegardé" : "Sauvegarder ce résumé"}
+                    {summarySaved ? "Sauvegardé" : "Sauvegarder"}
                   </Button>
                 )}
-                <Button onClick={downloadResult} variant="outline" className="text-foreground"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
-                <Button onClick={shareResult} variant="outline" className="text-foreground"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
-                <Button onClick={handleExportPdf} variant="outline" className="text-foreground"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
-                <Button onClick={handleToggleAudio} variant="outline" className="text-foreground" disabled={!speechSynthesisSupported}>
-                  {isSpeaking ? <StopCircle className="mr-2 h-5 w-5" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-                  {isSpeaking ? "Arrêter la lecture" : "Lire le résultat"}
-                </Button>
-                <Button onClick={handleNewSummary} variant="secondary"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
+                <Button onClick={downloadResult} variant="outline" className="text-foreground h-10"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
+                <Button onClick={shareResult} variant="outline" className="text-foreground h-10"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
+                <Button onClick={handleExportPdf} variant="outline" className="text-foreground h-10"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
+                
+                <div className="flex items-end gap-2">
+                  <div>
+                    <Label htmlFor="speech-rate-select" className="mb-1 block text-xs text-muted-foreground text-center sm:text-left">Vitesse</Label>
+                    <Select
+                      value={String(speechRate)}
+                      onValueChange={(value) => {
+                        const newRate = parseFloat(value);
+                        setSpeechRate(newRate);
+                        if (isSpeaking) {
+                          manualStopRef.current = true;
+                          window.speechSynthesis.cancel();
+                          const textToSpeak = getPlainTextFromResult();
+                          if (textToSpeak) {
+                            setTimeout(() => {
+                              startSpeech(textToSpeak, newRate);
+                            }, 150); 
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="speech-rate-select" className="w-[120px] h-10" aria-label="Vitesse de lecture">
+                        <SelectValue placeholder="Vitesse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.75">Lente</SelectItem>
+                        <SelectItem value="1">Normale</SelectItem>
+                        <SelectItem value="1.25">Modérée</SelectItem>
+                        <SelectItem value="1.5">Rapide</SelectItem>
+                        <SelectItem value="1.75">Très Rapide</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleToggleAudio} variant="outline" className="text-foreground h-10" disabled={!speechSynthesisSupported}>
+                    {isSpeaking ? <StopCircle className="mr-2 h-5 w-5" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+                    {isSpeaking ? "Arrêter" : "Lire"}
+                  </Button>
+                </div>
+
+                <Button onClick={handleNewSummary} variant="secondary" className="h-10"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
               </div>
             </div>
           )}
