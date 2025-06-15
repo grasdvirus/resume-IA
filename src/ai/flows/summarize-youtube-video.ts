@@ -78,16 +78,23 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     outputSchema: SummarizeYouTubeVideoOutputSchema,
   },
   async (input) => {
+    console.log('[GenkitFlow:summarizeYouTubeVideo] Received input:', input);
     let videoTitle: string | undefined = undefined;
     let videoDescription: string | undefined = undefined;
 
     const videoId = parseYouTubeVideoId(input.youtubeVideoUrl);
+    console.log('[GenkitFlow:summarizeYouTubeVideo] Parsed video ID:', videoId);
+
     if (videoId) {
+      console.log('[GenkitFlow:summarizeYouTubeVideo] Attempting to get video details for ID:', videoId);
       const details = await getVideoDetails(videoId);
+      console.log('[GenkitFlow:summarizeYouTubeVideo] Details received from YouTube service:', details);
       if (details) {
         videoTitle = details.title;
         videoDescription = details.description;
       }
+    } else {
+      console.log('[GenkitFlow:summarizeYouTubeVideo] No video ID could be parsed from URL.');
     }
 
     const promptInput: SummarizeYouTubeVideoInput = {
@@ -95,18 +102,22 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
       videoTitle,
       videoDescription,
     };
+    console.log('[GenkitFlow:summarizeYouTubeVideo] Input for Genkit prompt:', promptInput);
 
     const {output} = await prompt(promptInput);
+    console.log('[GenkitFlow:summarizeYouTubeVideo] Output from Genkit prompt:', output);
+
 
     if (!output || !output.summary) {
       let fallbackMessage = "Impossible de générer un résumé pour cette vidéo. ";
       if (videoTitle && videoDescription) {
-        fallbackMessage += "Les détails ont été récupérés mais la génération a échoué.";
+        fallbackMessage += "Les détails ont été récupérés mais la génération du résumé par l'IA a échoué.";
       } else if (videoId) {
-        fallbackMessage += "Les détails de la vidéo n'ont pas pu être récupérés via l'API YouTube. Le résumé est basé sur des informations limitées.";
+        fallbackMessage += "Les détails de la vidéo n'ont pas pu être récupérés via l'API YouTube (vérifiez la clé API et l'ID de la vidéo). Le résumé est basé sur des informations limitées.";
       } else {
         fallbackMessage += "L'URL de la vidéo semble invalide ou les informations sont insuffisantes.";
       }
+      console.warn('[GenkitFlow:summarizeYouTubeVideo] Fallback summary being returned:', fallbackMessage);
       return { summary: fallbackMessage };
     }
     return output;
