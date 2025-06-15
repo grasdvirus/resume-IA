@@ -10,8 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon } from 'lucide-react';
-import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType } from '@/app/actions';
+import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon, Rows3 } from 'lucide-react';
+import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +42,13 @@ const InputTypeLabels: Record<InputType, string> = {
   text: "Texte",
   youtube: "Vidéo YouTube",
   pdf: "PDF"
+};
+
+const SummaryLengthLabels: Record<SummaryLength, string> = {
+  court: "Court",
+  moyen: "Moyen",
+  long: "Long",
+  detaille: "Détaillé"
 };
 
 export function UserProfile() {
@@ -239,13 +246,14 @@ export function UserProfile() {
                       <h4 className="font-semibold text-base text-primary group-hover:text-primary/90 truncate" title={summary.title}>
                         {summary.title}
                       </h4>
-                      <div className="flex items-center text-xs text-muted-foreground mt-1 space-x-3">
+                      <div className="flex items-center text-xs text-muted-foreground mt-1 space-x-2 sm:space-x-3 flex-wrap">
                         <div className="flex items-center">
                           <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                           {new Date(summary.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
                         </div>
                          <Badge variant="secondary" className="capitalize">{OutputFormatLabels[summary.outputFormat] || summary.outputFormat}</Badge>
                          <Badge variant="outline" className="capitalize">{InputTypeLabels[summary.inputType] || summary.inputType}</Badge>
+                         {summary.summaryLength && <Badge variant="outline" className="capitalize bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700">{SummaryLengthLabels[summary.summaryLength] || summary.summaryLength}</Badge>}
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -384,3 +392,4 @@ export function UserProfile() {
     </div>
   );
 }
+

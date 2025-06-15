@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle, Save } from 'lucide-react';
-import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage } from '@/app/actions';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle, Save, Rows3 } from 'lucide-react';
+import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
 import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow'; 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
 type TargetLanguage = "fr" | "en" | "es";
+type SummaryLength = "court" | "moyen" | "long" | "detaille";
 
 interface OptionCardProps {
   icon: React.ReactNode;
@@ -63,6 +64,7 @@ export function SummarizerClientWrapper() {
   const [inputText, setInputText] = useState("");
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<OutputFormat>("resume");
   const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>(defaultLanguage);
+  const [selectedSummaryLength, setSelectedSummaryLength] = useState<SummaryLength>("moyen");
   const [isProcessing, setIsProcessing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,19 +88,12 @@ export function SummarizerClientWrapper() {
   useEffect(() => {
     setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
 
-    // Configure pdfjs-dist worker
-    // Check if it's already configured to avoid re-setting if this component re-mounts
-    // or if some other part of the app might configure it.
     if (typeof window !== 'undefined' && !(window as any).pdfjsWorkerSrcConfigured) {
       const version = pdfjsLib.version;
       if (version) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
-        (window as any).pdfjsWorkerSrcConfigured = true; // Mark as configured
-        console.log(`PDF.js worker configured dynamically with version: ${version}`);
+        (window as any).pdfjsWorkerSrcConfigured = true; 
       } else {
-        // This case should ideally not happen if pdfjs-dist is imported correctly.
-        console.error("Failed to get pdfjsLib.version. PDF functionality might be impaired. Falling back to a default worker version (4.3.136).");
-        // As a last resort, use a known good version. The package.json suggests ^4.3.136.
         const fallbackVersion = "4.3.136";
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true;
@@ -107,7 +102,6 @@ export function SummarizerClientWrapper() {
     
     const handleSpeechEnd = () => setIsSpeaking(false);
 
-    // Cleanup for speech synthesis
     return () => {
       if (window.speechSynthesis && window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
@@ -116,7 +110,7 @@ export function SummarizerClientWrapper() {
         utteranceRef.current.removeEventListener('end', handleSpeechEnd);
       }
     };
-  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+  }, []); 
   
   useEffect(() => {
     setSelectedLanguage(defaultLanguage);
@@ -124,7 +118,7 @@ export function SummarizerClientWrapper() {
 
   useEffect(() => {
     setSummarySaved(false);
-  }, [pdfFile, videoUrl, inputText, selectedOutputFormat, selectedLanguage]);
+  }, [pdfFile, videoUrl, inputText, selectedOutputFormat, selectedLanguage, selectedSummaryLength]);
 
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -205,8 +199,8 @@ export function SummarizerClientWrapper() {
     }
 
     let currentInputType = activeTab as ActionInputType;
-    let currentInputValue = ""; // This will hold extracted text for PDF, or URL/raw text for others
-    let currentPdfFileNameForAction = ""; // Only used if input is PDF, for title generation
+    let currentInputValue = ""; 
+    let currentPdfFileNameForAction = ""; 
 
 
     if (activeTab === "pdf") {
@@ -216,7 +210,7 @@ export function SummarizerClientWrapper() {
         return;
       }
       currentInputType = 'pdf'; 
-      currentPdfFileNameForAction = pdfFile.name; // Keep filename for title/metadata
+      currentPdfFileNameForAction = pdfFile.name; 
       try {
         toast({ title: "Lecture du PDF...", description: "Extraction du texte en cours. Cela peut prendre un moment pour les gros fichiers." });
         const extractedText = await extractTextFromPdf(pdfFile);
@@ -225,7 +219,7 @@ export function SummarizerClientWrapper() {
             setIsProcessing(false);
             return;
         }
-        currentInputValue = extractedText; // The extracted text is the primary input for AI
+        currentInputValue = extractedText; 
       } catch (pdfError: any) {
         console.error("Error extracting PDF text:", pdfError);
         setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
@@ -267,7 +261,8 @@ export function SummarizerClientWrapper() {
         (currentInputType === 'pdf' && currentPdfFileNameForAction) ? currentPdfFileNameForAction : currentInputValue, 
         selectedOutputFormat as ActionOutputFormat, 
         selectedLanguage as ActionTargetLanguage,
-        (currentInputType === 'pdf') ? currentInputValue : undefined // Pass extracted text if PDF
+        selectedSummaryLength as ActionSummaryLength,
+        (currentInputType === 'pdf') ? currentInputValue : undefined 
       );
       setSummaryResult(result);
     } catch (e: any) {
@@ -286,6 +281,7 @@ export function SummarizerClientWrapper() {
     setVideoUrl("");
     setInputText("");
     setSelectedLanguage(defaultLanguage); 
+    setSelectedSummaryLength("moyen");
     setUserAnswers({});
     setQuizScore(null);
     setShowQuizResults(false);
@@ -307,19 +303,20 @@ export function SummarizerClientWrapper() {
     setIsSaving(true);
 
     let originalInputValueForSave = "";
-    if (activeTab === "pdf" && pdfFileName) originalInputValueForSave = pdfFileName; // On sauvegarde le nom du fichier PDF
+    if (activeTab === "pdf" && pdfFileName) originalInputValueForSave = pdfFileName; 
     else if (activeTab === "video") originalInputValueForSave = videoUrl;
     else if (activeTab === "text") originalInputValueForSave = inputText;
     
     const summaryToSave: UserSummaryToSave = {
       userId: user.uid,
       title: summaryResult.title,
-      content: summaryResult.content, // Le contenu HTML/texte du résumé
+      content: summaryResult.content, 
       quizData: summaryResult.quizData,
-      inputType: activeTab as ActionInputType, // 'pdf', 'youtube', 'text'
-      inputValue: originalInputValueForSave, // Nom du PDF, URL, ou texte original
+      inputType: activeTab as ActionInputType, 
+      inputValue: originalInputValueForSave, 
       outputFormat: selectedOutputFormat as ActionOutputFormat,
       targetLanguage: selectedLanguage as ActionTargetLanguage,
+      summaryLength: selectedSummaryLength as ActionSummaryLength, 
     };
 
     try {
@@ -532,6 +529,43 @@ export function SummarizerClientWrapper() {
                 </TabsContent>
               </Tabs>
 
+              <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 className="text-xl font-semibold font-headline mb-4 text-center md:text-left">
+                        <Rows3 className="inline-block mr-2 h-6 w-6 align-text-bottom" />
+                        Longueur du résumé :
+                    </h3>
+                    <Select value={selectedSummaryLength} onValueChange={(value) => {setSelectedSummaryLength(value as SummaryLength); setSummarySaved(false);}}>
+                        <SelectTrigger className="w-full h-12 text-base">
+                        <SelectValue placeholder="Sélectionnez une longueur" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="court">Court (2-3 phrases)</SelectItem>
+                        <SelectItem value="moyen">Moyen (1 paragraphe)</SelectItem>
+                        <SelectItem value="long">Long (2-3 paragraphes)</SelectItem>
+                        <SelectItem value="detaille">Détaillé (points clés)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>
+                    <h3 className="text-xl font-semibold font-headline mb-4 text-center md:text-left">
+                        <Languages className="inline-block mr-2 h-6 w-6 align-text-bottom" />
+                        Langue de traduction :
+                    </h3>
+                    <Select value={selectedLanguage} onValueChange={(value) => {setSelectedLanguage(value as TargetLanguage); setSummarySaved(false);}}>
+                        <SelectTrigger className="w-full h-12 text-base">
+                        <SelectValue placeholder="Sélectionnez une langue" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="fr">Français</SelectItem>
+                        <SelectItem value="en">Anglais (English)</SelectItem>
+                        <SelectItem value="es">Espagnol (Español)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+              </div>
+
+
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -540,23 +574,6 @@ export function SummarizerClientWrapper() {
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<ListChecks />} title="QCM / Quiz" description="Testez vos connaissances" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                 </div>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold font-headline mb-4 text-center">
-                  <Languages className="inline-block mr-2 h-6 w-6 align-text-bottom" />
-                  Langue de traduction :
-                </h3>
-                <Select value={selectedLanguage} onValueChange={(value) => {setSelectedLanguage(value as TargetLanguage); setSummarySaved(false);}}>
-                  <SelectTrigger className="w-full sm:w-[280px] mx-auto h-12 text-base">
-                    <SelectValue placeholder="Sélectionnez une langue" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fr">Français</SelectItem>
-                    <SelectItem value="en">Anglais (English)</SelectItem>
-                    <SelectItem value="es">Espagnol (Español)</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               
               {error && (
@@ -595,7 +612,7 @@ export function SummarizerClientWrapper() {
               {selectedOutputFormat === 'qcm' && summaryResult.quizData && (
                 <Card className="mb-6 shadow-inner bg-muted/30">
                   <CardContent id="summaryContent" className="p-6 result-content-area">
-                    <div className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none mb-6" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
+                     <div className="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
                     
                     <div id="qcm-questions-container">
                       {summaryResult.quizData.questions.map((question, qIndex) => (
@@ -689,8 +706,8 @@ export function SummarizerClientWrapper() {
         .result-content-area ul li, .result-content-area ol li {
           margin-bottom: 0.5em;
         }
-        .result-content-area h4 {
-          font-size: 1.25em; 
+        .result-content-area h1, .result-content-area h2, .result-content-area h3, .result-content-area h4, .result-content-area h5, .result-content-area h6 {
+          font-family: 'Space Grotesk', sans-serif; /* Assurer la police headline pour les titres générés par l'IA */
           margin-top: 1em;
           margin-bottom: 0.5em;
         }
@@ -721,7 +738,7 @@ export function SummarizerClientWrapper() {
             margin: 0;
             font-size: 12pt;
           }
-          #summaryContent h3, #summaryContent h4, #summaryContent h5 {
+          #summaryContent h1, #summaryContent h2, #summaryContent h3, #summaryContent h4, #summaryContent h5, #summaryContent h6 {
              font-size: 14pt;
              margin-top: 0.5em;
              margin-bottom: 0.25em;

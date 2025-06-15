@@ -25,14 +25,18 @@ export type OutputFormat = z.infer<typeof OutputFormatSchema>;
 const TargetLanguageSchema = z.enum(['fr', 'en', 'es']);
 export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
 
+const SummaryLengthSchema = z.enum(['court', 'moyen', 'long', 'detaille']);
+export type SummaryLength = z.infer<typeof SummaryLengthSchema>;
+
 
 // This function will be called from the client component
 export async function generateSummaryAction(
   inputType: InputType,
-  inputValueOrFileName: string, // text content, youtube URL, or PDF file name
+  inputValueOrFileName: string, 
   outputFormat: OutputFormat,
   targetLanguage: TargetLanguage,
-  pdfExtractedText?: string // Texte extrait du PDF, si inputType est 'pdf'
+  summaryLength: SummaryLength,
+  pdfExtractedText?: string 
 ): Promise<SummaryResult> {
   let summaryForProcessing = ''; 
   let sourceName = '';
@@ -44,19 +48,19 @@ export async function generateSummaryAction(
     if (inputType === 'text') {
       sourceName = 'Texte personnalisé';
       if (inputValueOrFileName.length < 50) throw new Error('Le texte doit contenir au moins 50 caractères.');
-      const result = await summarizeText({ text: inputValueOrFileName });
+      const result = await summarizeText({ text: inputValueOrFileName, summaryLength });
       summaryForProcessing = result.summary;
     } else if (inputType === 'youtube') {
       sourceName = 'Vidéo YouTube';
       if (!inputValueOrFileName.includes('youtube.com/') && !inputValueOrFileName.includes('youtu.be/')) {
         throw new Error('Veuillez entrer une URL YouTube valide.');
       }
-      const result = await summarizeYouTubeVideo({ youtubeVideoUrl: inputValueOrFileName });
+      const result = await summarizeYouTubeVideo({ youtubeVideoUrl: inputValueOrFileName, summaryLength });
       summaryForProcessing = result.summary;
     } else if (inputType === 'pdf') {
       sourceName = inputValueOrFileName; // filename
       if (pdfExtractedText && pdfExtractedText.trim() !== "") {
-        const result = await summarizeText({ text: pdfExtractedText });
+        const result = await summarizeText({ text: pdfExtractedText, summaryLength });
         summaryForProcessing = result.summary;
       } else {
         console.warn("generateSummaryAction: PDF input type but no extracted text provided. Using fallback text.");
@@ -85,45 +89,18 @@ export async function generateSummaryAction(
     throw new Error(errorMessage);
   }
   
-  const finalContentHtml = processedSummaryForOutput.replace(/\n/g, '<br/>');
+  const finalContentHtml = processedSummaryForOutput.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>');
 
-  if (outputFormat === 'resume') {
+
+  if (outputFormat === 'resume' || outputFormat === 'fiche') {
     return {
-      title: `Résumé - ${sourceName}${translatedLabel}`,
-      content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📋 Points clés principaux :</h4>
-        <p>${finalContentHtml}</p>
-        <h4 style="font-weight: bold; margin-top: 1em; margin-bottom: 0.5em;">🎯 Conclusion :</h4>
-        <p>Cette synthèse a été générée et potentiellement traduite par une IA. Elle vise à fournir un aperçu concis.</p>
-      `,
-    };
-  } else if (outputFormat === 'fiche') {
-    return {
-      title: `Fiche de révision - ${sourceName}${translatedLabel}`,
-      content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📚 FICHE DE RÉVISION</h4>
-        <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <h5 style="font-weight: bold;">🔑 MOTS-CLÉS (Exemple basé sur le résumé)</h5>
-            <p><strong>Innovation • Méthodologie • Optimisation • Performance</strong> (Ces mots seraient extraits dynamiquement dans une version avancée)</p>
-        </div>
-        <h5 style="font-weight: bold;">📖 CONTENU PRINCIPAL</h5>
-        <p>${finalContentHtml}</p>
-        <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <h5 style="font-weight: bold;">💡 À RETENIR (Exemple)</h5>
-            <p>Le point le plus crucial à retenir de ce résumé est [suggestion basée sur le début : ${finalContentHtml.substring(0, 100)}...].</p>
-        </div>
-      `
+      title: `${outputFormat === 'fiche' ? 'Fiche de révision' : 'Résumé'} - ${sourceName}${translatedLabel}`,
+      content: `<p>${finalContentHtml}</p>`, // Directement le contenu HTML
     };
   } else if (outputFormat === 'qcm') {
     return {
       title: `QCM - ${sourceName}${translatedLabel}`,
-      content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">📝 Contexte du QCM (basé sur le résumé) :</h4>
-        <div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto">
-         <p>${finalContentHtml}</p>
-        </div>
-        <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances :</h4>
-      `, 
+      content: `<p>${finalContentHtml}</p>`, // Le résumé de base sert de contexte
       quizData: quizData,
     };
   } else if (outputFormat === 'audio') {
@@ -134,13 +111,13 @@ export async function generateSummaryAction(
         <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale du résumé.</p>
         <p>Contenu textuel du résumé :</p>
         <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
-          ${finalContentHtml}
+          <p>${finalContentHtml}</p>
         </blockquote>
       `
     };
   }
 
-  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: finalContentHtml };
+  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: `<p>${finalContentHtml}</p>` };
 }
 
 export interface UserSummaryToSave {
@@ -152,6 +129,7 @@ export interface UserSummaryToSave {
   inputValue: string; 
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
+  summaryLength: SummaryLength; // Ajout de la longueur
   createdAt?: number; 
 }
 
@@ -225,6 +203,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
         inputValue: data.inputValue as string || "",
         outputFormat: data.outputFormat as OutputFormat || 'resume',
         targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
+        summaryLength: data.summaryLength as SummaryLength || 'moyen', // Ajout avec fallback
         createdAt: createdAtISO,
       });
     }
@@ -238,3 +217,4 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     return []; 
   }
 }
+
