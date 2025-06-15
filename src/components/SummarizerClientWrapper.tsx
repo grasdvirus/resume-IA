@@ -37,7 +37,8 @@ interface OptionCardProps {
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
-      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out",
+      "flex-shrink-0 w-[240px] sm:w-auto", // Added for horizontal scroll behavior on mobile
+      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out h-full flex flex-col justify-between", // Added h-full and flex for consistent height
       "hover:border-primary hover:bg-gradient-to-br hover:from-primary/15 hover:to-primary/5 hover:shadow-lg hover:scale-[1.03]",
       selected ? "border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary shadow-xl scale-[1.02]" : "border-border"
     )}
@@ -47,9 +48,11 @@ const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value
     tabIndex={0}
     onKeyDown={(e) => e.key === 'Enter' && onSelect(value)}
   >
-    <div className="flex justify-center text-primary mb-2 text-3xl">{icon}</div>
-    <h4 className="font-semibold font-headline text-lg mb-1">{title}</h4>
-    <p className="text-sm text-muted-foreground">{description}</p>
+    <div>
+      <div className="flex justify-center text-primary mb-2 text-3xl">{icon}</div>
+      <h4 className="font-semibold font-headline text-lg mb-1">{title}</h4>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
   </div>
 );
 
@@ -94,7 +97,9 @@ export function SummarizerClientWrapper() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true; 
       } else {
-        const fallbackVersion = "4.3.136"; // Fallback if version is not found for some reason
+        // Fallback if version is not found for some reason, though pdfjsLib.version should generally exist.
+        const fallbackVersion = "4.3.136"; // A recent known good version
+        console.warn(`pdfjsLib.version was not found, using fallback worker version ${fallbackVersion}`);
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true;
       }
@@ -220,8 +225,6 @@ export function SummarizerClientWrapper() {
             setIsProcessing(false);
             return;
         }
-        // For PDF, inputValueOrFileName for the action will be the filename. 
-        // The extracted text is passed separately.
         currentInputValueForAction = currentPdfFileNameForAction;
       } catch (pdfError: any) {
         console.error("Error extracting PDF text:", pdfError);
@@ -576,7 +579,7 @@ export function SummarizerClientWrapper() {
 
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:pb-0 sm:overflow-x-visible lg:grid-cols-4">
                   <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
@@ -706,6 +709,25 @@ export function SummarizerClientWrapper() {
         </CardContent>
       </Card>
       <style jsx global>{`
+        .scrollbar-thin {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--primary) / 0.1);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+          height: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background: hsl(var(--primary) / 0.1);
+          border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background-color: hsl(var(--primary) / 0.5);
+          border-radius: 10px;
+          border: 2px solid hsl(var(--primary) / 0.1);
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+          background-color: hsl(var(--primary) / 0.7);
+        }
         .result-content-area ul, .result-content-area ol {
           list-style-position: inside;
           padding-left: 1.5em; 
