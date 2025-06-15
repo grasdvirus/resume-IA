@@ -22,11 +22,22 @@ export type InputType = z.infer<typeof InputTypeSchema>;
 const OutputFormatSchema = z.enum(['resume', 'fiche', 'qcm', 'audio']);
 export type OutputFormat = z.infer<typeof OutputFormatSchema>;
 
-const TargetLanguageSchema = z.enum(['fr', 'en', 'es']);
+const TargetLanguageSchema = z.enum(['fr', 'en', 'es', 'de', 'it', 'pt', 'ja', 'ko']);
 export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
 
 const SummaryLengthSchema = z.enum(['court', 'moyen', 'long', 'detaille']);
 export type SummaryLength = z.infer<typeof SummaryLengthSchema>;
+
+const languageMapDisplay: Record<TargetLanguage, string> = {
+  fr: 'Français',
+  en: 'Anglais',
+  es: 'Espagnol',
+  de: 'Allemand',
+  it: 'Italien',
+  pt: 'Portugais',
+  ja: 'Japonais',
+  ko: 'Coréen',
+};
 
 
 // This function will be called from the client component
@@ -74,9 +85,7 @@ export async function generateSummaryAction(
     if (targetLanguage !== 'fr' && processedSummaryForOutput) {
       const translationResult = await translateText({ textToTranslate: processedSummaryForOutput, targetLanguage: targetLanguage });
       processedSummaryForOutput = translationResult.translatedText;
-
-      if (targetLanguage === 'en') translatedLabel = " (Translated to English)";
-      if (targetLanguage === 'es') translatedLabel = " (Traducido al Español)";
+      translatedLabel = ` (Traduit en ${languageMapDisplay[targetLanguage] || targetLanguage})`;
     }
 
     if (outputFormat === 'qcm' && processedSummaryForOutput) {
@@ -95,12 +104,12 @@ export async function generateSummaryAction(
   if (outputFormat === 'resume' || outputFormat === 'fiche') {
     return {
       title: `${outputFormat === 'fiche' ? 'Fiche de révision' : 'Résumé'} - ${sourceName}${translatedLabel}`,
-      content: `<p>${finalContentHtml}</p>`, // Directement le contenu HTML
+      content: `<p>${finalContentHtml}</p>`, 
     };
   } else if (outputFormat === 'qcm') {
     return {
       title: `QCM - ${sourceName}${translatedLabel}`,
-      content: `<p>${finalContentHtml}</p>`, // Le résumé de base sert de contexte
+      content: `<div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none"><p>${finalContentHtml}</p></div>`,
       quizData: quizData,
     };
   } else if (outputFormat === 'audio') {
@@ -129,7 +138,7 @@ export interface UserSummaryToSave {
   inputValue: string; 
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
-  summaryLength: SummaryLength; // Ajout de la longueur
+  summaryLength: SummaryLength; 
   createdAt?: number; 
 }
 
@@ -203,7 +212,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
         inputValue: data.inputValue as string || "",
         outputFormat: data.outputFormat as OutputFormat || 'resume',
         targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
-        summaryLength: data.summaryLength as SummaryLength || 'moyen', // Ajout avec fallback
+        summaryLength: data.summaryLength as SummaryLength || 'moyen', 
         createdAt: createdAtISO,
       });
     }

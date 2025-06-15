@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon, Rows3 } from 'lucide-react';
-import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength } from '@/app/actions';
+import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,6 +49,17 @@ const SummaryLengthLabels: Record<SummaryLength, string> = {
   moyen: "Moyen",
   long: "Long",
   detaille: "Détaillé"
+};
+
+const TargetLanguageLabels: Record<TargetLanguage, string> = {
+  fr: 'Français',
+  en: 'Anglais',
+  es: 'Espagnol',
+  de: 'Allemand',
+  it: 'Italien',
+  pt: 'Portugais',
+  ja: 'Japonais',
+  ko: 'Coréen',
 };
 
 export function UserProfile() {
@@ -254,6 +265,7 @@ export function UserProfile() {
                          <Badge variant="secondary" className="capitalize">{OutputFormatLabels[summary.outputFormat] || summary.outputFormat}</Badge>
                          <Badge variant="outline" className="capitalize">{InputTypeLabels[summary.inputType] || summary.inputType}</Badge>
                          {summary.summaryLength && <Badge variant="outline" className="capitalize bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700">{SummaryLengthLabels[summary.summaryLength] || summary.summaryLength}</Badge>}
+                         {summary.targetLanguage && summary.targetLanguage !== 'fr' && <Badge variant="outline" className="capitalize bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700">{TargetLanguageLabels[summary.targetLanguage] || summary.targetLanguage}</Badge>}
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -344,6 +356,11 @@ export function UserProfile() {
                     <SelectItem value="fr">Français</SelectItem>
                     <SelectItem value="en">Anglais (English)</SelectItem>
                     <SelectItem value="es">Espagnol (Español)</SelectItem>
+                    <SelectItem value="de">Allemand (Deutsch)</SelectItem>
+                    <SelectItem value="it">Italien (Italiano)</SelectItem>
+                    <SelectItem value="pt">Portugais (Português)</SelectItem>
+                    <SelectItem value="ja">Japonais (日本語)</SelectItem>
+                    <SelectItem value="ko">Coréen (한국어)</SelectItem>
                 </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">

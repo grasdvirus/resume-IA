@@ -14,7 +14,7 @@ import type {TargetLanguage} from '@/app/actions'; // Utilisation de import type
 
 const TranslateTextInputSchema = z.object({
   textToTranslate: z.string().describe('The text to translate.'),
-  targetLanguage: z.custom<TargetLanguage>().describe('The target language code (e.g., "en", "es", "fr").'),
+  targetLanguage: z.custom<TargetLanguage>().describe('The target language code (e.g., "en", "es", "fr", "de", "it", "pt", "ja", "ko").'),
 });
 export type TranslateTextInput = z.infer<typeof TranslateTextInputSchema>;
 
@@ -31,6 +31,11 @@ const languageMap: Record<TargetLanguage, string> = {
   fr: 'French',
   en: 'English',
   es: 'Spanish',
+  de: 'German',
+  it: 'Italian',
+  pt: 'Portuguese',
+  ja: 'Japanese',
+  ko: 'Korean',
 };
 
 const translateTextPrompt = ai.definePrompt({

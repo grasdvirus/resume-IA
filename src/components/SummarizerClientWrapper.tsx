@@ -22,8 +22,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 type InputType = "pdf" | "video" | "text";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
-type TargetLanguage = "fr" | "en" | "es";
-type SummaryLength = "court" | "moyen" | "long" | "detaille";
+type TargetLanguage = ActionTargetLanguage; // Use the extended type from actions
+type SummaryLength = ActionSummaryLength; // Use the type from actions
 
 interface OptionCardProps {
   icon: React.ReactNode;
@@ -94,7 +94,7 @@ export function SummarizerClientWrapper() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true; 
       } else {
-        const fallbackVersion = "4.3.136";
+        const fallbackVersion = "4.3.136"; // Fallback if version is not found for some reason
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true;
       }
@@ -199,8 +199,9 @@ export function SummarizerClientWrapper() {
     }
 
     let currentInputType = activeTab as ActionInputType;
-    let currentInputValue = ""; 
+    let currentInputValueForAction = ""; 
     let currentPdfFileNameForAction = ""; 
+    let pdfExtractedTextForAction: string | undefined = undefined;
 
 
     if (activeTab === "pdf") {
@@ -213,13 +214,15 @@ export function SummarizerClientWrapper() {
       currentPdfFileNameForAction = pdfFile.name; 
       try {
         toast({ title: "Lecture du PDF...", description: "Extraction du texte en cours. Cela peut prendre un moment pour les gros fichiers." });
-        const extractedText = await extractTextFromPdf(pdfFile);
-        if (!extractedText.trim()) {
+        pdfExtractedTextForAction = await extractTextFromPdf(pdfFile);
+        if (!pdfExtractedTextForAction.trim()) {
             setError("Impossible d'extraire le texte de ce PDF ou le PDF est vide de texte.");
             setIsProcessing(false);
             return;
         }
-        currentInputValue = extractedText; 
+        // For PDF, inputValueOrFileName for the action will be the filename. 
+        // The extracted text is passed separately.
+        currentInputValueForAction = currentPdfFileNameForAction;
       } catch (pdfError: any) {
         console.error("Error extracting PDF text:", pdfError);
         setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
@@ -239,7 +242,7 @@ export function SummarizerClientWrapper() {
         return;
       }
       currentInputType = 'youtube';
-      currentInputValue = videoUrl;
+      currentInputValueForAction = videoUrl;
     } else if (activeTab === "text") {
       if (!inputText.trim()) {
         setError("Veuillez entrer du texte à résumer.");
@@ -252,17 +255,17 @@ export function SummarizerClientWrapper() {
          return;
       }
       currentInputType = 'text';
-      currentInputValue = inputText;
+      currentInputValueForAction = inputText;
     }
 
     try {
       const result = await generateSummaryAction(
         currentInputType, 
-        (currentInputType === 'pdf' && currentPdfFileNameForAction) ? currentPdfFileNameForAction : currentInputValue, 
+        currentInputValueForAction, 
         selectedOutputFormat as ActionOutputFormat, 
         selectedLanguage as ActionTargetLanguage,
         selectedSummaryLength as ActionSummaryLength,
-        (currentInputType === 'pdf') ? currentInputValue : undefined 
+        pdfExtractedTextForAction 
       );
       setSummaryResult(result);
     } catch (e: any) {
@@ -436,7 +439,7 @@ export function SummarizerClientWrapper() {
       }
       
       const newUtterance = new SpeechSynthesisUtterance(textToSpeak);
-      const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' };
+      const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP', ko: 'ko-KR' };
       newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
       
       if (utteranceRef.current) {
@@ -560,6 +563,11 @@ export function SummarizerClientWrapper() {
                         <SelectItem value="fr">Français</SelectItem>
                         <SelectItem value="en">Anglais (English)</SelectItem>
                         <SelectItem value="es">Espagnol (Español)</SelectItem>
+                        <SelectItem value="de">Allemand (Deutsch)</SelectItem>
+                        <SelectItem value="it">Italien (Italiano)</SelectItem>
+                        <SelectItem value="pt">Portugais (Português)</SelectItem>
+                        <SelectItem value="ja">Japonais (日本語)</SelectItem>
+                        <SelectItem value="ko">Coréen (한국어)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -707,7 +715,7 @@ export function SummarizerClientWrapper() {
           margin-bottom: 0.5em;
         }
         .result-content-area h1, .result-content-area h2, .result-content-area h3, .result-content-area h4, .result-content-area h5, .result-content-area h6 {
-          font-family: 'Space Grotesk', sans-serif; /* Assurer la police headline pour les titres générés par l'IA */
+          font-family: 'Space Grotesk', sans-serif; 
           margin-top: 1em;
           margin-bottom: 0.5em;
         }

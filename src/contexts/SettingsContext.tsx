@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-export type AppLanguage = 'fr' | 'en' | 'es';
+export type AppLanguage = 'fr' | 'en' | 'es' | 'de' | 'it' | 'pt' | 'ja' | 'ko';
 
 export interface NotificationPreferences {
   downloadSuccess: boolean;
@@ -20,11 +20,13 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const VALID_LANGUAGES: AppLanguage[] = ['fr', 'en', 'es', 'de', 'it', 'pt', 'ja', 'ko'];
+
 const getInitialDefaultLanguage = (): AppLanguage => {
   if (typeof window !== 'undefined') {
     const storedLang = localStorage.getItem("defaultLanguage");
-    if (storedLang === 'fr' || storedLang === 'en' || storedLang === 'es') {
-      return storedLang;
+    if (storedLang && VALID_LANGUAGES.includes(storedLang as AppLanguage)) {
+      return storedLang as AppLanguage;
     }
   }
   return 'fr'; // Default language
@@ -36,7 +38,6 @@ const getInitialNotificationPreferences = (): NotificationPreferences => {
     if (storedPrefs) {
       try {
         const parsed = JSON.parse(storedPrefs);
-        // Ensure all keys are present and have correct types, providing defaults if not
         return {
           downloadSuccess: typeof parsed.downloadSuccess === 'boolean' ? parsed.downloadSuccess : true,
           shareSuccess: typeof parsed.shareSuccess === 'boolean' ? parsed.shareSuccess : true,
@@ -85,7 +86,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'defaultLanguage' && event.newValue && (event.newValue === 'fr' || event.newValue === 'en' || event.newValue === 'es')) {
+      if (event.key === 'defaultLanguage' && event.newValue && VALID_LANGUAGES.includes(event.newValue as AppLanguage)) {
         setDefaultLanguageState(event.newValue as AppLanguage);
       }
       if (event.key === 'notificationPreferences' && event.newValue) {
