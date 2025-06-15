@@ -37,8 +37,8 @@ interface OptionCardProps {
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
-      "flex-shrink-0 w-[240px] sm:w-auto", // Added for horizontal scroll behavior on mobile
-      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out h-full flex flex-col justify-between", // Added h-full and flex for consistent height
+      "flex-shrink-0 w-[240px] sm:w-auto", 
+      "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out h-full flex flex-col justify-between", 
       "hover:border-primary hover:bg-gradient-to-br hover:from-primary/15 hover:to-primary/5 hover:shadow-lg hover:scale-[1.03]",
       selected ? "border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary shadow-xl scale-[1.02]" : "border-border"
     )}
@@ -76,6 +76,7 @@ export function SummarizerClientWrapper() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const manualStopRef = useRef(false); 
 
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [quizScore, setQuizScore] = useState<number | null>(null);
@@ -97,18 +98,21 @@ export function SummarizerClientWrapper() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true; 
       } else {
-        // Fallback if version is not found for some reason, though pdfjsLib.version should generally exist.
-        const fallbackVersion = "4.3.136"; // A recent known good version
+        const fallbackVersion = "4.3.136"; 
         console.warn(`pdfjsLib.version was not found, using fallback worker version ${fallbackVersion}`);
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
         (window as any).pdfjsWorkerSrcConfigured = true;
       }
     }
     
-    const handleSpeechEnd = () => setIsSpeaking(false);
+    const handleSpeechEnd = () => {
+        manualStopRef.current = false;
+        setIsSpeaking(false);
+    };
 
     return () => {
       if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        manualStopRef.current = true;
         window.speechSynthesis.cancel();
       }
       if (utteranceRef.current) {
@@ -197,8 +201,10 @@ export function SummarizerClientWrapper() {
     setQuizScore(null);
     setShowQuizResults(false);
     setSummarySaved(false);
+    manualStopRef.current = false;
 
      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      manualStopRef.current = true;
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     }
@@ -292,10 +298,12 @@ export function SummarizerClientWrapper() {
     setQuizScore(null);
     setShowQuizResults(false);
     setSummarySaved(false);
+    manualStopRef.current = false;
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      manualStopRef.current = true;
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
@@ -432,9 +440,11 @@ export function SummarizerClientWrapper() {
     }
 
     if (isSpeaking) {
+      manualStopRef.current = true;
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
     } else {
+      manualStopRef.current = false;
       const textToSpeak = getPlainTextFromResult();
       if (!textToSpeak) {
         toast({ title: "Aucun texte à lire", description: "Le contenu du résumé est vide.", variant: "destructive" });
@@ -445,16 +455,27 @@ export function SummarizerClientWrapper() {
       const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP', ko: 'ko-KR' };
       newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
       
+      const handleSpeechEndEvent = () => {
+          setIsSpeaking(false);
+          manualStopRef.current = false;
+      };
+
       if (utteranceRef.current) {
-        utteranceRef.current.removeEventListener('end', () => setIsSpeaking(false));
+        utteranceRef.current.removeEventListener('end', handleSpeechEndEvent);
+        utteranceRef.current.removeEventListener('error', handleSpeechErrorEvent);
       }
       
-      newUtterance.onend = () => setIsSpeaking(false);
-      newUtterance.onerror = (event) => {
+      const handleSpeechErrorEvent = (event: SpeechSynthesisErrorEvent) => {
         console.error('SpeechSynthesisUtterance.onerror', event);
         setIsSpeaking(false);
-        toast({ title: "Erreur de lecture", description: "Impossible de lire le résumé.", variant: "destructive" });
+        if (!manualStopRef.current) { // Only show toast if not a manual stop
+          toast({ title: "Erreur de lecture", description: `Impossible de lire le résumé. Erreur: ${event.error}`, variant: "destructive" });
+        }
+        manualStopRef.current = false; // Reset flag
       };
+      
+      newUtterance.onend = handleSpeechEndEvent;
+      newUtterance.onerror = handleSpeechErrorEvent;
       
       utteranceRef.current = newUtterance;
       window.speechSynthesis.speak(newUtterance);
@@ -780,7 +801,7 @@ export function SummarizerClientWrapper() {
           .no-print {
             display: none !important;
           }
-          #qcm-questions-container, .flex.flex-wrap.gap-4.justify-center { 
+          #qcm-questions-container, .flex.flex-wrap.gap-3.justify-center { 
             display: none !important;
           }
         }
