@@ -59,10 +59,9 @@ export async function generateSummaryAction(
         const result = await summarizeText({ text: pdfExtractedText });
         summaryForProcessing = result.summary;
       } else {
-        // Fallback si l'extraction PDF a échoué côté client ou n'a pas renvoyé de texte
         console.warn("generateSummaryAction: PDF input type but no extracted text provided. Using fallback text.");
-        summaryForProcessing = `Le traitement du fichier PDF "${inputValueOrFileName}" n'a pas pu extraire de contenu textuel. Ceci est un texte d'exemple pour illustrer la fonctionnalité. L'objectif de ce document fictif est de démontrer comment l'IA peut transformer les opérations d'une entreprise.`;
-        sourceName += " (Erreur d'extraction - Démo)";
+        summaryForProcessing = `Le traitement du fichier PDF "${inputValueOrFileName}" n'a pas pu extraire de contenu textuel. Veuillez réessayer ou vérifier le fichier. Si le problème persiste, le fichier est peut-être protégé ou corrompu.`;
+        sourceName += " (Erreur d'extraction)";
       }
     }
 
@@ -120,7 +119,7 @@ export async function generateSummaryAction(
       title: `QCM - ${sourceName}${translatedLabel}`,
       content: `
         <h4 style="font-weight: bold; margin-bottom: 0.5em;">📝 Contexte du QCM (basé sur le résumé) :</h4>
-        <div style="background: #f9f9f9; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; max-height: 200px; overflow-y: auto;">
+        <div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto">
          <p>${finalContentHtml}</p>
         </div>
         <h4 style="font-weight: bold; margin-bottom: 1em;">🧠 Testez vos connaissances :</h4>
