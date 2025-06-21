@@ -25,6 +25,11 @@ const SummarizeYouTubeVideoInputSchema = z.object({
 });
 export type SummarizeYouTubeVideoInput = z.infer<typeof SummarizeYouTubeVideoInputSchema>;
 
+// Define the extended schema that includes the length instruction.
+const SummarizeYouTubeVideoWithInstructionSchema = SummarizeYouTubeVideoInputSchema.extend({ 
+  lengthInstruction: z.string().describe("Instruction for the summary length and style.") 
+});
+
 const SummarizeYouTubeVideoOutputSchema = z.object({
   summary: z.string().describe('A summary of the YouTube video.'),
 });
@@ -44,38 +49,32 @@ const lengthInstructionsMap: Record<SummaryLength, string> = {
 
 const prompt = ai.definePrompt({
   name: 'summarizeYouTubeVideoPrompt',
-  input: {schema: SummarizeYouTubeVideoInputSchema.extend({ lengthInstruction: z.string() })},
+  input: {schema: SummarizeYouTubeVideoWithInstructionSchema}, // Use the new extended schema
   output: {schema: SummarizeYouTubeVideoOutputSchema},
-  prompt: `You are an AI assistant. Your task is to generate a summary *in French* of a YouTube video, based *solely* on the provided URL, title, and description.
-Do not attempt to access the video content directly. Your summary must be derived from the text information given to you.
+  prompt: `You are an AI assistant. Your task is to generate a summary *in French* of a YouTube video, based *solely* on the provided URL, title, and description. Do not attempt to access the video content directly.
 
-Instruction for summary length and style: {{{lengthInstruction}}}
+Your summary must be derived from the text information given to you.
 
-YouTube Video URL: {{{youtubeVideoUrl}}}
-
-{{#if videoTitle}}
-Video Title: {{{videoTitle}}}
-{{/if}}
-
-{{#if videoDescription}}
-Video Description (use this as the primary source for your summary):
-{{{videoDescription}}}
 ---
-Based *only* on the title and description above (if available), please:
-1. Identify the main subject of the video.
-2. Describe the likely target audience.
-3. List the key topics or questions the video probably addresses, according to its title and description.
-Present this as a coherent text respecting the requested length and style.
-
-If the description is very short or uninformative, state that the summary is primarily based on the title.
-If title and description are not provided, clearly state that the summary is speculative and based only on the URL.
-{{else}}
+INSTRUCTIONS:
+1.  **Summary Style**: {{{lengthInstruction}}}
+2.  **Source Information**:
+    -   YouTube Video URL: {{{youtubeVideoUrl}}}
+    {{#if videoTitle}}
+    -   Video Title: {{{videoTitle}}}
+    {{/if}}
+    {{#if videoDescription}}
+    -   Video Description: {{{videoDescription}}}
+    {{/if}}
+3.  **Task**:
+    -   Based *only* on the information above, generate a coherent summary in French.
+    -   If you have a title and description, use them as the primary source.
+    -   If you only have a title, base your summary on that and you can mention that the description was unavailable.
+    -   If you have neither title nor description, clearly state that your summary is speculative and based only on the video's URL.
+4.  **Final Output**: Provide only the final summary text. Do not add any introductory phrases.
 ---
-The title and description for this video could not be fetched or were not provided.
-Based *only* on the YouTube Video URL: {{{youtubeVideoUrl}}}, provide a speculative summary respecting the requested length and style. Clearly state that this summary is speculative due to limited information.
-{{/if}}
 
-The summary should be in French.
+Generate the summary now.
 `,
 });
 
@@ -107,7 +106,8 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     
     const lengthInstruction = lengthInstructionsMap[input.summaryLength] || lengthInstructionsMap['moyen'];
 
-    const promptInput: z.infer<typeof SummarizeYouTubeVideoInputSchema.extend<{ lengthInstruction: z.ZodString }>> = {
+    // Use the new extended schema for the prompt input object. The type is correctly inferred.
+    const promptInput: z.infer<typeof SummarizeYouTubeVideoWithInstructionSchema> = {
       youtubeVideoUrl: input.youtubeVideoUrl,
       summaryLength: input.summaryLength,
       videoTitle,
@@ -135,4 +135,3 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     return output;
   }
 );
-
