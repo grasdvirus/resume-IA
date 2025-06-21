@@ -8,7 +8,7 @@ import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
-import { ref, push, get, child, serverTimestamp as rtdbServerTimestamp, query, orderByChild, equalTo } from 'firebase/database'; 
+import { ref, push, get } from 'firebase/database'; 
 
 export interface SummaryResult {
   title: string;
@@ -226,4 +226,3 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     return []; 
   }
 }
-

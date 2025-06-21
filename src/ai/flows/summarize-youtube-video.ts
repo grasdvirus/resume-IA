@@ -106,7 +106,6 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     
     const lengthInstruction = lengthInstructionsMap[input.summaryLength] || lengthInstructionsMap['moyen'];
 
-    // Use the new extended schema for the prompt input object. The type is correctly inferred.
     const promptInput: z.infer<typeof SummarizeYouTubeVideoWithInstructionSchema> = {
       youtubeVideoUrl: input.youtubeVideoUrl,
       summaryLength: input.summaryLength,
