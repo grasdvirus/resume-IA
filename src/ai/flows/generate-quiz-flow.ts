@@ -50,8 +50,7 @@ Fournissez une brève explication pour chaque bonne réponse si cela semble pert
 
 Format de sortie attendu :
 Vous devez impérativement retourner un objet JSON valide qui correspond au schéma Zod fourni.
-Assurez-vous que les `id` des questions (ex: "q1", "q2") et des options (ex: "q1a", "q1b", "q1c") sont uniques au sein de leur contexte. L'ID de l'option correcte doit correspondre à l'un des ID des options proposées pour cette question.
-Par exemple pour une question "q1", les options pourraient être "q1a", "q1b", "q1c", et correctAnswerId serait l'un de ceux-là.
+Assurez-vous que les id des questions sont uniques (par exemple, "q1", "q2"). Pour chaque question, les id des options doivent être simples et uniques (par exemple, "a", "b", "c"). L'ID de la réponse correcte (\`correctAnswerId\`) doit correspondre à l'un des ID d'option pour cette question.
 `;
 
 const generateQuizPrompt = ai.definePrompt({
