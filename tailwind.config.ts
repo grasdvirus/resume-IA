@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 const plugin = require('tailwindcss/plugin');
 
@@ -109,10 +110,10 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
-    plugin(function ({ matchUtilities, theme }) {
+    plugin(function ({ matchUtilities, theme }: { matchUtilities: any, theme: any }) {
       matchUtilities(
         {
-          'text-shadow': (value) => ({
+          'text-shadow': (value: any) => ({
             textShadow: value,
           }),
         },
