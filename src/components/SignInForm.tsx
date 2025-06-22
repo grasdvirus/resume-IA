@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, Brain } from 'lucide-react'; // Added Brain icon
+import { Eye, EyeOff, Mail, Lock, Brain, Loader2 } from 'lucide-react';
 
 export function SignInForm() {
   const [email, setEmail] = useState('');
@@ -36,7 +36,7 @@ export function SignInForm() {
       router.push('/');
     } catch (err: any) {
       let friendlyErrorMessage = "Email ou mot de passe incorrect. Veuillez réessayer.";
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         friendlyErrorMessage = "L'adresse e-mail ou le mot de passe que vous avez entré n'est pas valide.";
       } else if (err.code === 'auth/invalid-email') {
         friendlyErrorMessage = "Le format de l'adresse e-mail n'est pas valide.";
@@ -55,12 +55,11 @@ export function SignInForm() {
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-10rem)] p-4">
       <div className="relative flex flex-col md:flex-row w-full max-w-4xl bg-card shadow-2xl rounded-xl overflow-hidden">
-        {/* Left Panel with App Icon */}
+        
         <div className="hidden md:flex md:w-1/2 bg-[linear-gradient(135deg,theme(colors.primary.DEFAULT)_0%,#764ba2_100%)] items-center justify-center p-12">
           <Brain className="h-48 w-48 text-white opacity-90" />
         </div>
 
-        {/* Right Panel with Form */}
         <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
           <form onSubmit={handleSubmit} className="space-y-6">
             <h1 className="text-3xl font-bold text-center text-primary font-headline mb-8">
@@ -74,13 +73,12 @@ export function SignInForm() {
                   type="email"
                   id="login-email"
                   required
-                  className="login__input pl-10 pr-4 py-3 text-base"
+                  className="pl-10 pr-4 py-3 text-base"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                 />
-                 {/* <label htmlFor="login-email" className="login__label">Email</label> // Style from example, adapted with Tailwind later if needed */}
               </div>
             </div>
 
@@ -91,13 +89,12 @@ export function SignInForm() {
                   type={showPassword ? 'text' : 'password'}
                   id="login-pass"
                   required
-                  className="login__input pl-10 pr-10 py-3 text-base"
+                  className="pl-10 pr-10 py-3 text-base"
                   placeholder="Mot de passe"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                 />
-                {/* <label htmlFor="login-pass" className="login__label">Password</label> // Style from example */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -113,19 +110,19 @@ export function SignInForm() {
 
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center space-x-2">
-                <Checkbox id="login-check" className="login__check-input border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
-                <Label htmlFor="login-check" className="login__check-label font-normal text-muted-foreground">Se souvenir de moi</Label>
+                <Checkbox id="login-check" className="border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" />
+                <Label htmlFor="login-check" className="font-normal text-muted-foreground">Se souvenir de moi</Label>
               </div>
-              <Link href="#" className="login__forgot font-medium text-primary hover:underline">
+              <Link href="#" className="font-medium text-primary hover:underline">
                 Mot de passe oublié?
               </Link>
             </div>
 
-            <Button type="submit" className="login__button w-full text-base py-3 font-semibold" disabled={isLoading}>
-              {isLoading ? 'Connexion en cours...' : 'Se connecter'}
+            <Button type="submit" className="w-full text-base py-3 font-semibold" disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
             </Button>
 
-            <p className="login__register text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-muted-foreground">
               Vous n'avez pas de compte?{' '}
               <Link href="/signup" className="font-medium text-primary hover:underline">
                 S'inscrire

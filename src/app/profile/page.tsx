@@ -18,7 +18,7 @@ export default function ProfilePage() {
     }
   }, [user, loading, router]);
 
-  if (loading) { // Only show loader if loading is true, user check is handled by redirect or rendering UserProfile
+  if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <ResumAIHeader />

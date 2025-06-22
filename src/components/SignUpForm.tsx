@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 export function SignUpForm() {
   const [email, setEmail] = useState('');
@@ -43,10 +44,16 @@ export function SignUpForm() {
       });
       router.push('/'); // Redirect to home page or dashboard
     } catch (err: any) {
-      setError(err.message || "Erreur lors de l'inscription. Veuillez réessayer.");
+      let friendlyError = "Erreur lors de l'inscription. Veuillez réessayer.";
+      if (err.code === 'auth/email-already-in-use') {
+        friendlyError = "Cette adresse e-mail est déjà utilisée. Veuillez vous connecter.";
+      } else if (err.code === 'auth/invalid-email') {
+        friendlyError = "Le format de l'adresse e-mail n'est pas valide.";
+      }
+      setError(friendlyError);
       toast({
         title: "Erreur d'inscription",
-        description: err.message || "Une erreur est survenue.",
+        description: friendlyError,
         variant: "destructive",
       });
     } finally {
@@ -55,7 +62,7 @@ export function SignUpForm() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-md mx-auto shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-headline">Créer un compte</CardTitle>
         <CardDescription>Entrez vos informations pour créer un nouveau compte.</CardDescription>
@@ -79,7 +86,7 @@ export function SignUpForm() {
             <Input
               id="password"
               type="password"
-              placeholder="********"
+              placeholder="Au moins 6 caractères"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -102,7 +109,7 @@ export function SignUpForm() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Création...' : 'S\'inscrire'}
+            {isLoading ? <Loader2 className="animate-spin" /> : 'S\'inscrire'}
           </Button>
            <p className="text-sm text-center text-muted-foreground">
             Vous avez déjà un compte?{' '}
