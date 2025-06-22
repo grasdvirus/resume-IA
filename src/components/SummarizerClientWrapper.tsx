@@ -9,16 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, Globe, CheckCircle, XCircle, Save, Rows3 } from 'lucide-react';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, Globe, Save, Rows3 } from 'lucide-react';
 import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
-import type { QuizData } from '@/ai/flows/generate-quiz-flow'; 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import * as pdfjsLib from 'pdfjs-dist';
+import { QuizView } from '@/components/QuizView';
+import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
+
 
 type InputType = "pdf" | "video" | "text" | "wikipedia";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
@@ -73,43 +74,17 @@ export function SummarizerClientWrapper() {
   const [summaryResult, setSummaryResult] = useState<SummaryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
-  const [speechRate, setSpeechRate] = useState<number>(1);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const manualStopRef = useRef(false); 
-  const utteranceEventHandlersAttachedRef = useRef(false);
-
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
-  const [quizScore, setQuizScore] = useState<number | null>(null);
-  const [showQuizResults, setShowQuizResults] = useState(false);
   
   const [isSaving, setIsSaving] = useState(false);
   const [summarySaved, setSummarySaved] = useState(false);
-
+  
+  const [plainTextForSpeech, setPlainTextForSpeech] = useState("");
+  const { isSupported: speechSynthesisSupported, isSpeaking, speechRate, setSpeechRate, toggleSpeech, cancel: cancelSpeech } = useSpeechSynthesis(plainTextForSpeech, selectedLanguage);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  const onSpeechEnd = useCallback(() => {
-    setIsSpeaking(false);
-    manualStopRef.current = false; 
-    utteranceEventHandlersAttachedRef.current = false;
-  }, []);
-
-  const onSpeechError = useCallback((event: SpeechSynthesisErrorEvent) => {
-    setIsSpeaking(false);
-    if (!manualStopRef.current) { 
-      toast({ title: "Erreur de lecture", description: `Impossible de lire le résumé. Erreur: ${event.error}`, variant: "destructive" });
-    }
-    manualStopRef.current = false; 
-    utteranceEventHandlersAttachedRef.current = false;
-  }, [toast]);
-
   useEffect(() => {
-    setSpeechSynthesisSupported('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window);
-
     if (typeof window !== 'undefined' && !(window as any).pdfjsWorkerSrcConfigured) {
       const version = pdfjsLib.version;
       if (version) {
@@ -120,18 +95,7 @@ export function SummarizerClientWrapper() {
       }
       (window as any).pdfjsWorkerSrcConfigured = true; 
     }
-    
-    return () => {
-      if (window.speechSynthesis && window.speechSynthesis.speaking) {
-        manualStopRef.current = true;
-        window.speechSynthesis.cancel();
-      }
-      if (utteranceRef.current) {
-        utteranceRef.current.removeEventListener('end', onSpeechEnd);
-        utteranceRef.current.removeEventListener('error', onSpeechError);
-      }
-    };
-  }, [onSpeechEnd, onSpeechError]); 
+  }, []); 
   
   useEffect(() => {
     setSelectedLanguage(defaultLanguage);
@@ -209,16 +173,8 @@ export function SummarizerClientWrapper() {
     setIsProcessing(true);
     setSummaryResult(null);
     setError(null);
-    setUserAnswers({});
-    setQuizScore(null);
-    setShowQuizResults(false);
     setSummarySaved(false);
-
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      manualStopRef.current = true;
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
+    cancelSpeech();
 
     let currentInputType = activeTab as ActionInputType;
     let currentInputValueForAction = ""; 
@@ -311,19 +267,12 @@ export function SummarizerClientWrapper() {
     setWikiSearchTerm("");
     setSelectedLanguage(defaultLanguage); 
     setSelectedSummaryLength("moyen");
-    setUserAnswers({});
-    setQuizScore(null);
-    setShowQuizResults(false);
     setSummarySaved(false);
-    manualStopRef.current = false;
+    cancelSpeech();
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      manualStopRef.current = true;
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
   };
 
   const handleSaveSummary = async () => {
@@ -365,43 +314,34 @@ export function SummarizerClientWrapper() {
   };
 
 
-  const getPlainTextFromResult = useCallback(() => {
-    if (!summaryResult) return "";
+  const getPlainTextFromResult = useCallback((result: SummaryResult | null): string => {
+    if (!result) return "";
     
-    if (summaryResult.audioText) {
-      return summaryResult.audioText;
+    if (result.audioText) {
+      return result.audioText;
     }
 
-    let textToProcess = summaryResult.content;
-
-    if (selectedOutputFormat === 'qcm' && summaryResult.quizData) {
-        const quizTextParts: string[] = [];
-        if (summaryResult.content) { 
-            const tempContextEl = document.createElement('div');
-            tempContextEl.innerHTML = summaryResult.content;
-            quizTextParts.push((tempContextEl.textContent || tempContextEl.innerText || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-        }
-        summaryResult.quizData.questions.forEach((q, idx) => {
-            quizTextParts.push(`Question ${idx + 1}: ${q.questionText}`);
-            q.options.forEach(opt => quizTextParts.push(opt.text));
-        });
-        textToProcess = quizTextParts.join('. ');
-    } else {
+    if (selectedOutputFormat === 'qcm' && result.quizData) {
         const tempEl = document.createElement('div');
-        tempEl.innerHTML = summaryResult.content;
-        tempEl.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(header => {
-            const p = document.createElement('p');
-            p.textContent = (header.textContent || "") + ". ";
-            header.parentNode?.replaceChild(p, header);
-        });
-        tempEl.querySelectorAll('button, input[type="radio"]+label, #qcm-container, #qcm-result-text, .qcm-explanation').forEach(el => el.remove());
-        textToProcess = (tempEl.textContent || tempEl.innerText || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        tempEl.innerHTML = result.content;
+        return (tempEl.textContent || tempEl.innerText || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
-    return textToProcess;
-  }, [summaryResult, selectedOutputFormat]);
+    
+    const tempEl = document.createElement('div');
+    tempEl.innerHTML = result.content;
+    return (tempEl.textContent || tempEl.innerText || "").replace(/\s+/g, ' ').trim();
+  }, [selectedOutputFormat]);
+  
+  useEffect(() => {
+      if (summaryResult) {
+          setPlainTextForSpeech(getPlainTextFromResult(summaryResult));
+      } else {
+          setPlainTextForSpeech("");
+      }
+  }, [summaryResult, getPlainTextFromResult]);
 
   const downloadResult = () => {
-    const textContent = getPlainTextFromResult();
+    const textContent = getPlainTextFromResult(summaryResult);
     if (!textContent) return;
     
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
@@ -420,7 +360,7 @@ export function SummarizerClientWrapper() {
   };
 
   const shareResult = async () => {
-    const textContent = getPlainTextFromResult();
+    const textContent = getPlainTextFromResult(summaryResult);
     if (!textContent) return;
 
     const shareData = {
@@ -454,73 +394,6 @@ export function SummarizerClientWrapper() {
   const handleExportPdf = () => {
     if (!summaryResult) return;
     window.print();
-  };
-
-  const startSpeech = useCallback((text: string, rate: number) => {
-    if (!speechSynthesisSupported) return;
-
-    if (utteranceRef.current && utteranceEventHandlersAttachedRef.current) {
-        utteranceRef.current.removeEventListener('end', onSpeechEnd);
-        utteranceRef.current.removeEventListener('error', onSpeechError);
-        utteranceEventHandlersAttachedRef.current = false;
-    }
-    if(window.speechSynthesis.speaking) { 
-        manualStopRef.current = true; // Stop any ongoing speech before starting new
-        window.speechSynthesis.cancel();
-    }
-
-    manualStopRef.current = false;
-    const newUtterance = new SpeechSynthesisUtterance(text);
-    const langMap: Record<TargetLanguage, string> = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP', ko: 'ko-KR' };
-    newUtterance.lang = langMap[selectedLanguage as TargetLanguage] || 'fr-FR';
-    newUtterance.rate = rate;
-
-    newUtterance.onend = onSpeechEnd;
-    newUtterance.onerror = onSpeechError;
-    utteranceEventHandlersAttachedRef.current = true;
-    
-    utteranceRef.current = newUtterance;
-    window.speechSynthesis.speak(newUtterance);
-    setIsSpeaking(true);
-  }, [speechSynthesisSupported, selectedLanguage, onSpeechEnd, onSpeechError]);
-  
-  const handleToggleAudio = () => {
-    if (!speechSynthesisSupported || !summaryResult) {
-      toast({ title: "Synthèse vocale non supportée", description: "Votre navigateur ne supporte pas la synthèse vocale, ou il n'y a pas de résumé à lire.", variant: "destructive" });
-      return;
-    }
-
-    if (isSpeaking) {
-      manualStopRef.current = true;
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else {
-      const textToSpeak = getPlainTextFromResult();
-      if (!textToSpeak) {
-        toast({ title: "Aucun texte à lire", description: "Le contenu du résumé est vide.", variant: "destructive" });
-        return;
-      }
-      startSpeech(textToSpeak, speechRate);
-    }
-  };
-
-  const handleQuizAnswerChange = (questionId: string, answerId: string) => {
-    setUserAnswers(prev => ({ ...prev, [questionId]: answerId }));
-    setShowQuizResults(false); 
-    setQuizScore(null);
-  };
-
-  const handleCheckQuizAnswers = () => {
-    if (!summaryResult?.quizData) return;
-    let score = 0;
-    summaryResult.quizData.questions.forEach(q => {
-      if (userAnswers[q.id] === q.correctAnswerId) {
-        score++;
-      }
-    });
-    setQuizScore(score);
-    setShowQuizResults(true);
-    toast({ title: "Résultat du QCM", description: `Vous avez obtenu ${score} sur ${summaryResult.quizData.questions.length} bonnes réponses.` });
   };
 
   const submitButtonLabels: Record<InputType, string> = {
@@ -680,74 +553,15 @@ export function SummarizerClientWrapper() {
                 </div>
               )}
               
-              {selectedOutputFormat !== 'qcm' && (
-                <Card className="mb-6 shadow-inner bg-muted/30">
-                  <CardContent id="summaryContent" className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none p-6 result-content-area" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
-                </Card>
-              )}
-
-              {selectedOutputFormat === 'qcm' && summaryResult.quizData && (
-                <Card className="mb-6 shadow-inner bg-muted/30">
-                  <CardContent id="summaryContent" className="p-6 result-content-area">
-                     <div className="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
-                    
-                    <div id="qcm-questions-container">
-                      {summaryResult.quizData.questions.map((question, qIndex) => (
-                        <div key={question.id} className="qcm-question-block mb-6 p-4 border border-border rounded-lg bg-background">
-                          <p className="font-semibold mb-3 text-lg">{qIndex + 1}. {question.questionText}</p>
-                          <RadioGroup
-                            value={userAnswers[question.id] || ""}
-                            onValueChange={(value) => handleQuizAnswerChange(question.id, value)}
-                            aria-label={`Options pour la question ${qIndex + 1}`}
-                          >
-                            {question.options.map((option) => (
-                              <div key={option.id} className="flex items-center space-x-2 mb-2">
-                                <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} disabled={showQuizResults} />
-                                <Label htmlFor={`${question.id}-${option.id}`} className={cn("cursor-pointer", showQuizResults && userAnswers[question.id] === option.id && (option.id === question.correctAnswerId ? "text-green-600 font-bold" : "text-red-600 font-bold"), showQuizResults && option.id === question.correctAnswerId && "text-green-600")}>
-                                  {option.text}
-                                  {showQuizResults && userAnswers[question.id] === option.id && (option.id === question.correctAnswerId ? <CheckCircle className="inline-block ml-2 h-5 w-5 text-green-500" /> : <XCircle className="inline-block ml-2 h-5 w-5 text-red-500" />)}
-                                  {showQuizResults && option.id === question.correctAnswerId && userAnswers[question.id] !== option.id && <CheckCircle className="inline-block ml-2 h-5 w-5 text-green-500" />}
-                                </Label>
-                              </div>
-                            ))}
-                          </RadioGroup>
-                          {showQuizResults && question.explanation && (
-                             <p className={cn("mt-2 text-sm p-2 rounded-md", userAnswers[question.id] === question.correctAnswerId ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
-                                <strong>Explication :</strong> {question.explanation}
-                            </p>
-                          )}
-                           {showQuizResults && !question.explanation && userAnswers[question.id] !== question.correctAnswerId && (
-                             <p className="mt-2 text-sm p-2 rounded-md bg-yellow-100 text-yellow-700">
-                                <strong>Note :</strong> La bonne réponse était <span className="font-bold">{question.options.find(opt => opt.id === question.correctAnswerId)?.text || 'N/A'}</span>.
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {quizScore !== null && showQuizResults && (
-                      <div className="mt-6 p-4 border-2 border-primary rounded-lg text-center bg-primary/10">
-                        <h4 className="text-xl font-bold font-headline mb-2 text-primary">Votre Score : {quizScore} / {summaryResult.quizData.questions.length}</h4>
-                      </div>
+              <Card className="mb-6 shadow-inner bg-muted/30">
+                <CardContent id="summaryContent" className="p-6">
+                    {selectedOutputFormat === 'qcm' && summaryResult.quizData ? (
+                        <QuizView quizData={summaryResult.quizData} summaryContent={summaryResult.content} />
+                    ) : (
+                        <div className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none result-content-area" dangerouslySetInnerHTML={{ __html: summaryResult.content }} />
                     )}
-                    {!showQuizResults && (
-                       <Button 
-                         onClick={handleCheckQuizAnswers} 
-                         className="w-full mt-4 action-btn bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white transition-all duration-300 ease-in-out" 
-                         disabled={Object.keys(userAnswers).length !== summaryResult.quizData.questions.length}>
-                         Vérifier mes réponses
-                       </Button>
-                    )}
-                     {showQuizResults && (
-                       <Button 
-                         onClick={() => { setUserAnswers({}); setQuizScore(null); setShowQuizResults(false);}} 
-                         className="w-full mt-4 action-btn bg-gradient-to-r from-slate-500 to-gray-600 hover:from-slate-600 hover:to-gray-700 text-white transition-all duration-300 ease-in-out">
-                         Rejouer le Quiz
-                       </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                </CardContent>
+              </Card>
 
               <div className="flex flex-wrap gap-3 justify-center items-end">
                 {user && (
@@ -770,20 +584,8 @@ export function SummarizerClientWrapper() {
                     <Label htmlFor="speech-rate-select" className="mb-1 block text-xs text-muted-foreground text-center sm:text-left">Vitesse</Label>
                     <Select
                       value={String(speechRate)}
-                      onValueChange={(value) => {
-                        const newRate = parseFloat(value);
-                        setSpeechRate(newRate);
-                        if (isSpeaking) {
-                          manualStopRef.current = true;
-                          window.speechSynthesis.cancel();
-                          const textToSpeak = getPlainTextFromResult();
-                          if (textToSpeak) {
-                            setTimeout(() => {
-                              startSpeech(textToSpeak, newRate);
-                            }, 150); 
-                          }
-                        }
-                      }}
+                      onValueChange={(value) => setSpeechRate(parseFloat(value))}
+                      disabled={!speechSynthesisSupported}
                     >
                       <SelectTrigger id="speech-rate-select" className="w-[120px] h-10" aria-label="Vitesse de lecture">
                         <SelectValue placeholder="Vitesse" />
@@ -797,7 +599,7 @@ export function SummarizerClientWrapper() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={handleToggleAudio} variant="outline" className="text-foreground h-10" disabled={!speechSynthesisSupported}>
+                  <Button onClick={toggleSpeech} variant="outline" className="text-foreground h-10" disabled={!speechSynthesisSupported}>
                     {isSpeaking ? <StopCircle className="mr-2 h-5 w-5" /> : <PlayCircle className="mr-2 h-5 w-5" />}
                     {isSpeaking ? "Arrêter" : "Lire"}
                   </Button>
