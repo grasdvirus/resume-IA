@@ -1,3 +1,4 @@
+
 // src/app/actions.ts
 'use server';
 
@@ -5,15 +6,16 @@ import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
-import { generateRevisionSheet } from '@/ai/flows/generate-revision-sheet-flow';
+import { generateRevisionSheet, type RevisionSheetData } from '@/ai/flows/generate-revision-sheet-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
-import { ref, push, get } from 'firebase/database'; 
+import { ref, push, get, remove } from 'firebase/database';
 
 export interface SummaryResult {
   title: string;
   content: string; 
   quizData?: QuizData;
+  audioText?: string;
 }
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
@@ -177,7 +179,8 @@ export async function generateSummaryAction(
               <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
                 <p>${audioContentHtml}</p>
               </blockquote>
-            `
+            `,
+            audioText: summaryForAudioView,
         };
     }
 
@@ -210,6 +213,7 @@ export interface UserSummaryToSave {
   title: string;
   content: string; 
   quizData?: QuizData;
+  audioText?: string;
   inputType: InputType;
   inputValue: string; 
   outputFormat: OutputFormat;
@@ -284,6 +288,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
         title: data.title as string || "Titre non disponible",
         content: data.content as string || "Contenu non disponible",
         quizData: data.quizData as QuizData | undefined,
+        audioText: data.audioText as string | undefined,
         inputType: data.inputType as InputType || 'text',
         inputValue: data.inputValue as string || "",
         outputFormat: data.outputFormat as OutputFormat || 'resume',
@@ -300,5 +305,20 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
   } catch (error) {
     console.error("Error fetching user summaries from Realtime Database in getUserSummariesAction:", error);
     return []; 
+  }
+}
+
+export async function deleteSummaryAction(userId: string, summaryId: string): Promise<{ success: boolean }> {
+  if (!userId || !summaryId) {
+    throw new Error("UserId et SummaryId sont requis pour la suppression.");
+  }
+  try {
+    const summaryRef = ref(db, `summaries/${userId}/${summaryId}`);
+    await remove(summaryRef);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting summary from Realtime Database:", error);
+    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la suppression du résumé.";
+    throw new Error(`Impossible de supprimer le résumé: ${errorMessage}`);
   }
 }

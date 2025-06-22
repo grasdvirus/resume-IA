@@ -338,6 +338,7 @@ export function SummarizerClientWrapper() {
       title: summaryResult.title,
       content: summaryResult.content, 
       quizData: summaryResult.quizData,
+      audioText: summaryResult.audioText,
       inputType: activeTab as ActionInputType, 
       inputValue: originalInputValueForSave, 
       outputFormat: selectedOutputFormat as ActionOutputFormat,
@@ -361,6 +362,10 @@ export function SummarizerClientWrapper() {
   const getPlainTextFromResult = useCallback(() => {
     if (!summaryResult) return "";
     
+    if (summaryResult.audioText) {
+      return summaryResult.audioText;
+    }
+
     let textToProcess = summaryResult.content;
 
     if (selectedOutputFormat === 'qcm' && summaryResult.quizData) {
@@ -854,4 +859,3 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
-
