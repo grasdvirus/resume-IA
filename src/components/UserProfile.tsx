@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { updateProfile, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon, Rows3 } from 'lucide-react';
+import { Loader2, User, Edit3, KeyRound, MailCheck, FolderArchive, Settings, FileText, CalendarDays, Bell, Trash2, Sun, Moon, Languages as LanguagesIcon, Rows3, Globe } from 'lucide-react';
 import { getUserSummariesAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,8 @@ const OutputFormatLabels: Record<OutputFormat, string> = {
 const InputTypeLabels: Record<InputType, string> = {
   text: "Texte",
   youtube: "Vidéo YouTube",
-  pdf: "PDF"
+  pdf: "PDF",
+  wikipedia: "Wikipédia",
 };
 
 const SummaryLengthLabels: Record<SummaryLength, string> = {
@@ -271,6 +272,16 @@ export function UserProfile() {
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4 pt-0">
                     <div className="prose prose-sm dark:prose-invert max-w-none result-content-area border-t border-border pt-3 mt-2" dangerouslySetInnerHTML={{ __html: summary.content }} />
+                    
+                    {summary.sourceUrl && (
+                        <div className="mt-3 text-xs">
+                            <a href={summary.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                <Globe className="h-3 w-3" />
+                                Voir la source originale
+                            </a>
+                        </div>
+                    )}
+                    
                     {summary.quizData && summary.outputFormat === 'qcm' && (
                         <div className="mt-4 border-t border-border pt-3">
                             <h5 className="font-semibold mb-2 text-sm">Questions du Quiz :</h5>

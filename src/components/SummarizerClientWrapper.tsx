@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle, Save, Rows3 } from 'lucide-react';
+import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, HelpCircle, CheckCircle, XCircle, Save, Rows3, Globe } from 'lucide-react';
 import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
 import type { QuizData, QuizQuestion } from '@/ai/flows/generate-quiz-flow'; 
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import * as pdfjsLib from 'pdfjs-dist';
 
-type InputType = "pdf" | "video" | "text";
+type InputType = "pdf" | "video" | "text" | "wikipedia";
 type OutputFormat = "resume" | "fiche" | "qcm" | "audio";
 type TargetLanguage = ActionTargetLanguage; 
 type SummaryLength = ActionSummaryLength; 
@@ -65,6 +65,7 @@ export function SummarizerClientWrapper() {
   const [pdfFileName, setPdfFileName] = useState<string>("");
   const [videoUrl, setVideoUrl] = useState("");
   const [inputText, setInputText] = useState("");
+  const [wikiSearchTerm, setWikiSearchTerm] = useState("");
   const [selectedOutputFormat, setSelectedOutputFormat] = useState<OutputFormat>("resume");
   const [selectedLanguage, setSelectedLanguage] = useState<TargetLanguage>(defaultLanguage);
   const [selectedSummaryLength, setSelectedSummaryLength] = useState<SummaryLength>("moyen");
@@ -140,7 +141,7 @@ export function SummarizerClientWrapper() {
 
   useEffect(() => {
     setSummarySaved(false);
-  }, [pdfFile, videoUrl, inputText, selectedOutputFormat, selectedLanguage, selectedSummaryLength]);
+  }, [pdfFile, videoUrl, inputText, wikiSearchTerm, selectedOutputFormat, selectedLanguage, selectedSummaryLength]);
 
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -223,7 +224,6 @@ export function SummarizerClientWrapper() {
 
     let currentInputType = activeTab as ActionInputType;
     let currentInputValueForAction = ""; 
-    let currentPdfFileNameForAction = ""; 
     let pdfExtractedTextForAction: string | undefined = undefined;
 
 
@@ -234,7 +234,6 @@ export function SummarizerClientWrapper() {
         return;
       }
       currentInputType = 'pdf'; 
-      currentPdfFileNameForAction = pdfFile.name; 
       try {
         toast({ title: "Lecture du PDF...", description: "Extraction du texte en cours. Cela peut prendre un moment pour les gros fichiers." });
         pdfExtractedTextForAction = await extractTextFromPdf(pdfFile);
@@ -243,7 +242,7 @@ export function SummarizerClientWrapper() {
             setIsProcessing(false);
             return;
         }
-        currentInputValueForAction = currentPdfFileNameForAction;
+        currentInputValueForAction = pdfFile.name;
       } catch (pdfError: any) {
         console.error("Error extracting PDF text:", pdfError);
         setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
@@ -277,6 +276,14 @@ export function SummarizerClientWrapper() {
       }
       currentInputType = 'text';
       currentInputValueForAction = inputText;
+    } else if (activeTab === "wikipedia") {
+        if (!wikiSearchTerm.trim()) {
+            setError("Veuillez entrer un terme de recherche pour Wikipédia.");
+            setIsProcessing(false);
+            return;
+        }
+        currentInputType = 'wikipedia';
+        currentInputValueForAction = wikiSearchTerm;
     }
 
     try {
@@ -304,6 +311,7 @@ export function SummarizerClientWrapper() {
     setPdfFileName("");
     setVideoUrl("");
     setInputText("");
+    setWikiSearchTerm("");
     setSelectedLanguage(defaultLanguage); 
     setSelectedSummaryLength("moyen");
     setUserAnswers({});
@@ -332,6 +340,7 @@ export function SummarizerClientWrapper() {
     if (activeTab === "pdf" && pdfFileName) originalInputValueForSave = pdfFileName; 
     else if (activeTab === "video") originalInputValueForSave = videoUrl;
     else if (activeTab === "text") originalInputValueForSave = inputText;
+    else if (activeTab === "wikipedia") originalInputValueForSave = wikiSearchTerm;
     
     const summaryToSave: UserSummaryToSave = {
       userId: user.uid,
@@ -339,6 +348,7 @@ export function SummarizerClientWrapper() {
       content: summaryResult.content, 
       quizData: summaryResult.quizData,
       audioText: summaryResult.audioText,
+      sourceUrl: summaryResult.sourceUrl,
       inputType: activeTab as ActionInputType, 
       inputValue: originalInputValueForSave, 
       outputFormat: selectedOutputFormat as ActionOutputFormat,
@@ -517,6 +527,12 @@ export function SummarizerClientWrapper() {
     toast({ title: "Résultat du QCM", description: `Vous avez obtenu ${score} sur ${summaryResult.quizData.questions.length} bonnes réponses.` });
   };
 
+  const submitButtonLabels: Record<InputType, string> = {
+    pdf: "Analyser le PDF",
+    video: "Analyser la vidéo",
+    text: "Résumer le texte",
+    wikipedia: "Rechercher & Résumer"
+  };
 
   return (
     <section id="upload-section" className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -528,10 +544,11 @@ export function SummarizerClientWrapper() {
           {!summaryResult && !isProcessing && (
             <>
               <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-12 mb-6">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto sm:h-12 mb-6">
                   <TabsTrigger value="pdf" className="py-3 text-base"><FileText className="mr-2 h-5 w-5" />PDF</TabsTrigger>
-                  <TabsTrigger value="video" className="py-3 text-base"><Youtube className="mr-2 h-5 w-5" />Vidéo YouTube</TabsTrigger>
+                  <TabsTrigger value="video" className="py-3 text-base"><Youtube className="mr-2 h-5 w-5" />YouTube</TabsTrigger>
                   <TabsTrigger value="text" className="py-3 text-base"><AlignLeft className="mr-2 h-5 w-5" />Texte</TabsTrigger>
+                  <TabsTrigger value="wikipedia" className="py-3 text-base"><Globe className="mr-2 h-5 w-5" />Wikipédia</TabsTrigger>
                 </TabsList>
                 <TabsContent value="pdf">
                   <div
@@ -567,6 +584,15 @@ export function SummarizerClientWrapper() {
                     onChange={(e) => {setInputText(e.target.value); setSummarySaved(false);}}
                     placeholder="Collez votre texte ici..."
                     className="min-h-[200px] text-base mb-4"
+                  />
+                </TabsContent>
+                <TabsContent value="wikipedia">
+                  <Input
+                    type="search"
+                    value={wikiSearchTerm}
+                    onChange={(e) => {setWikiSearchTerm(e.target.value); setSummarySaved(false);}}
+                    placeholder="Ex: 'Photosynthèse', 'Albert Einstein'..."
+                    className="h-12 text-base mb-4"
                   />
                 </TabsContent>
               </Tabs>
@@ -632,7 +658,7 @@ export function SummarizerClientWrapper() {
 
               <Button onClick={handleSubmit} size="lg" className="w-full text-lg py-6 font-headline bg-[linear-gradient(45deg,#ff6b6b,#ee5a24)] hover:bg-[linear-gradient(60deg,#ff8585,#ff7a45)] hover:scale-[1.03] text-primary-foreground transition-all duration-300 ease-in-out">
                 {isProcessing ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : null}
-                {activeTab === "pdf" ? "Analyser le PDF" : activeTab === "video" ? "Analyser la vidéo" : "Résumer le texte"}
+                {submitButtonLabels[activeTab]}
               </Button>
             </>
           )}
@@ -648,7 +674,15 @@ export function SummarizerClientWrapper() {
 
           {summaryResult && !isProcessing && (
             <div>
-              <h3 className="text-3xl font-bold font-headline text-center mb-6">✨ {summaryResult.title || "Votre résultat est prêt !"} ✨</h3>
+              <h3 className="text-3xl font-bold font-headline text-center mb-2">✨ {summaryResult.title || "Votre résultat est prêt !"} ✨</h3>
+              {summaryResult.sourceUrl && (
+                <div className="text-center mb-4">
+                    <a href={summaryResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline inline-flex items-center gap-1.5">
+                        <Globe className="h-4 w-4" />
+                        Voir la source originale
+                    </a>
+                </div>
+              )}
               
               {selectedOutputFormat !== 'qcm' && (
                 <Card className="mb-6 shadow-inner bg-muted/30">

@@ -6,7 +6,8 @@ import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
-import { generateRevisionSheet, type RevisionSheetData } from '@/ai/flows/generate-revision-sheet-flow';
+import { generateRevisionSheet } from '@/ai/flows/generate-revision-sheet-flow';
+import { summarizeWikipediaArticle } from '@/ai/flows/summarize-wikipedia-page-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
 import { ref, push, get, remove } from 'firebase/database';
@@ -16,9 +17,10 @@ export interface SummaryResult {
   content: string; 
   quizData?: QuizData;
   audioText?: string;
+  sourceUrl?: string;
 }
 
-const InputTypeSchema = z.enum(['text', 'youtube', 'pdf']);
+const InputTypeSchema = z.enum(['text', 'youtube', 'pdf', 'wikipedia']);
 export type InputType = z.infer<typeof InputTypeSchema>;
 
 const OutputFormatSchema = z.enum(['resume', 'fiche', 'qcm', 'audio']);
@@ -53,9 +55,10 @@ export async function generateSummaryAction(
 ): Promise<SummaryResult> {
   let summaryForProcessing = ''; 
   let sourceName = '';
+  let sourceUrl: string | undefined = undefined;
   
   try {
-    // Étape 1: Générer le résumé de base à partir de la source (PDF, YouTube, Texte)
+    // Étape 1: Générer le résumé de base à partir de la source (PDF, YouTube, Texte, Wikipedia)
     if (inputType === 'text') {
       sourceName = 'Texte personnalisé';
       if (inputValueOrFileName.length < 50) throw new Error('Le texte doit contenir au moins 50 caractères.');
@@ -68,6 +71,7 @@ export async function generateSummaryAction(
       }
       const result = await summarizeYouTubeVideo({ youtubeVideoUrl: inputValueOrFileName, summaryLength });
       summaryForProcessing = result.summary;
+      sourceUrl = inputValueOrFileName;
     } else if (inputType === 'pdf') {
       sourceName = inputValueOrFileName; // filename
       if (pdfExtractedText && pdfExtractedText.trim() !== "") {
@@ -78,6 +82,11 @@ export async function generateSummaryAction(
         summaryForProcessing = `Le traitement du fichier PDF "${inputValueOrFileName}" n'a pas pu extraire de contenu textuel. Veuillez réessayer ou vérifier le fichier. Si le problème persiste, le fichier est peut-être protégé ou corrompu.`;
         sourceName += " (Erreur d'extraction)";
       }
+    } else if (inputType === 'wikipedia') {
+        const result = await summarizeWikipediaArticle({ searchTerm: inputValueOrFileName, summaryLength });
+        summaryForProcessing = result.summary;
+        sourceName = `Article Wikipédia : ${result.articleTitle}`;
+        sourceUrl = result.articleUrl;
     }
 
     // Étape 2: Préparer le contenu final basé sur le format de sortie
@@ -160,6 +169,7 @@ export async function generateSummaryAction(
             title: finalTitle,
             content: `<div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none"><p>${summaryForQcmView.replace(/\n/g, '<br/>')}</p></div>`,
             quizData: quizData,
+            sourceUrl: sourceUrl,
         };
     }
 
@@ -181,6 +191,7 @@ export async function generateSummaryAction(
               </blockquote>
             `,
             audioText: summaryForAudioView,
+            sourceUrl: sourceUrl,
         };
     }
 
@@ -192,6 +203,7 @@ export async function generateSummaryAction(
     return {
         title: finalTitle,
         content: finalContent,
+        sourceUrl: sourceUrl,
     };
 
   } catch (error) {
@@ -214,6 +226,7 @@ export interface UserSummaryToSave {
   content: string; 
   quizData?: QuizData;
   audioText?: string;
+  sourceUrl?: string;
   inputType: InputType;
   inputValue: string; 
   outputFormat: OutputFormat;
@@ -289,6 +302,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
         content: data.content as string || "Contenu non disponible",
         quizData: data.quizData as QuizData | undefined,
         audioText: data.audioText as string | undefined,
+        sourceUrl: data.sourceUrl as string | undefined,
         inputType: data.inputType as InputType || 'text',
         inputValue: data.inputValue as string || "",
         outputFormat: data.outputFormat as OutputFormat || 'resume',
