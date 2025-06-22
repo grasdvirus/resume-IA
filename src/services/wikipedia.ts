@@ -22,7 +22,6 @@ export async function searchWikipedia(term: string): Promise<WikipediaSearchResu
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`Wikipedia API (search) error: ${response.status}`);
       return null;
     }
     const data = await response.json();
@@ -35,7 +34,6 @@ export async function searchWikipedia(term: string): Promise<WikipediaSearchResu
     }
     return null;
   } catch (error) {
-    console.error('Failed to fetch from Wikipedia API (search):', error);
     return null;
   }
 }
@@ -52,7 +50,6 @@ async function getFullWikipediaPageContent(pageTitle: string): Promise<string | 
     const url = `https://fr.wikipedia.org/w/api.php?${searchParams.toString()}`;
     const response = await fetch(url);
     if (!response.ok) {
-        console.error(`Wikipedia API (full content) error: ${response.status}`);
         return null;
     }
     const data = await response.json();
@@ -82,7 +79,6 @@ export async function getWikipediaPageContent(pageTitle: string): Promise<string
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`Wikipedia API (intro content) error: ${response.status}`);
       return null;
     }
     const data = await response.json();
@@ -92,14 +88,12 @@ export async function getWikipediaPageContent(pageTitle: string): Promise<string
     if (pageId && pages[pageId] && pages[pageId].extract) {
       // If the intro is very short (often just '...'), fetch the full content instead.
       if (pages[pageId].extract.length < 100) {
-         console.log("Intro is too short, fetching full article content.");
          return getFullWikipediaPageContent(pageTitle);
       }
       return pages[pageId].extract;
     }
     return null;
   } catch (error) {
-    console.error('Failed to fetch from Wikipedia API (content):', error);
     return null;
   }
 }

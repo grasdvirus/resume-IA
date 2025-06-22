@@ -40,8 +40,6 @@ export function SignInForm() {
         friendlyErrorMessage = "L'adresse e-mail ou le mot de passe que vous avez entré n'est pas valide.";
       } else if (err.code === 'auth/invalid-email') {
         friendlyErrorMessage = "Le format de l'adresse e-mail n'est pas valide.";
-      } else {
-        console.error("Firebase SignIn Error:", err);
       }
       setError(friendlyErrorMessage);
       toast({

@@ -22,7 +22,6 @@ export async function parseYouTubeVideoId(url: string): Promise<string | null> {
  */
 export async function getVideoDetails(videoId: string): Promise<VideoDetails | null> {
   if (!videoId) {
-    console.warn('[YouTubeService] getVideoDetails called with no videoId.');
     return null;
   }
 
@@ -39,7 +38,6 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     });
 
     if (!response.ok) {
-      console.error(`[YouTubeService] Failed to fetch YouTube page (${response.status}) for URL: ${videoUrl}`);
       return null;
     }
 
@@ -67,7 +65,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
             title = playerResponse?.videoDetails?.title || '';
         }
       } catch (e) {
-        console.warn('[YouTubeService] Failed to parse ytInitialPlayerResponse JSON. Falling back to meta tag.');
+        // Fallback to meta tag if JSON parsing fails
       }
     }
 
@@ -81,7 +79,6 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
 
     // If we couldn't find a title or description, scraping likely failed.
     if (!title && !description) {
-      console.warn(`[YouTubeService] Could not scrape title or description for video ID: ${videoId}`);
       return null;
     }
 
@@ -92,7 +89,6 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     };
 
   } catch (error) {
-    console.error('[YouTubeService] Error during YouTube page scraping:', error);
     return null;
   }
 }

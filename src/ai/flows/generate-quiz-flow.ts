@@ -78,7 +78,6 @@ const generateQuizFlow = ai.defineFlow(
     }
     
     if (!output.questions || output.questions.length === 0) {
-        console.error("Aucune question générée ou format incorrect:", output);
         // Fallback conforme au schéma (au moins 3 options par question, et au moins 3 questions)
         return { 
             questions: [

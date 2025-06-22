@@ -99,7 +99,6 @@ export function SummarizerClientWrapper() {
   }, []);
 
   const onSpeechError = useCallback((event: SpeechSynthesisErrorEvent) => {
-    console.error('SpeechSynthesisUtterance.onerror', event);
     setIsSpeaking(false);
     if (!manualStopRef.current) { 
       toast({ title: "Erreur de lecture", description: `Impossible de lire le résumé. Erreur: ${event.error}`, variant: "destructive" });
@@ -117,7 +116,6 @@ export function SummarizerClientWrapper() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
       } else {
         const fallbackVersion = "4.3.136"; 
-        console.warn(`pdfjsLib.version was not found, using fallback worker version ${fallbackVersion}`);
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${fallbackVersion}/pdf.worker.min.mjs`;
       }
       (window as any).pdfjsWorkerSrcConfigured = true; 
@@ -244,7 +242,6 @@ export function SummarizerClientWrapper() {
         }
         currentInputValueForAction = pdfFile.name;
       } catch (pdfError: any) {
-        console.error("Error extracting PDF text:", pdfError);
         setError(`Erreur lors de la lecture du PDF: ${pdfError.message || 'Veuillez vérifier le fichier et réessayer.'}`);
         setIsProcessing(false);
         return;
@@ -361,7 +358,6 @@ export function SummarizerClientWrapper() {
       toast({ title: "Succès", description: "Résumé sauvegardé avec succès !" });
       setSummarySaved(true);
     } catch (error: any) {
-      console.error("Failed to save summary:", error);
       toast({ title: "Erreur de sauvegarde", description: error.message || "Impossible de sauvegarder le résumé.", variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -439,7 +435,7 @@ export function SummarizerClientWrapper() {
           toast({ title: "Partage réussi", description: "Le résumé a été partagé." });
         }
       } catch (err) {
-        console.warn("Share API error:", err);
+        // User cancelled share, no need to show error
       }
     } else {
       try {

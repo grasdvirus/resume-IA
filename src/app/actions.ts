@@ -6,7 +6,7 @@ import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
-import { generateRevisionSheet } from '@/ai/flows/generate-revision-sheet-flow';
+import { generateRevisionSheet, type RevisionSheetData } from '@/ai/flows/generate-revision-sheet-flow';
 import { summarizeWikipediaArticle } from '@/ai/flows/summarize-wikipedia-page-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
@@ -78,7 +78,6 @@ export async function generateSummaryAction(
         const result = await summarizeText({ text: pdfExtractedText, summaryLength });
         summaryForProcessing = result.summary;
       } else {
-        console.warn("generateSummaryAction: PDF input type but no extracted text provided. Using fallback text.");
         summaryForProcessing = `Le traitement du fichier PDF "${inputValueOrFileName}" n'a pas pu extraire de contenu textuel. Veuillez réessayer ou vérifier le fichier. Si le problème persiste, le fichier est peut-être protégé ou corrompu.`;
         sourceName += " (Erreur d'extraction)";
       }
@@ -94,7 +93,7 @@ export async function generateSummaryAction(
     let quizData: QuizData | undefined = undefined;
 
     if (outputFormat === 'fiche' && summaryForProcessing.trim()) {
-        const revisionSheetData = await generateRevisionSheet({ sourceText: summaryForProcessing });
+        const revisionSheetData: RevisionSheetData = await generateRevisionSheet({ sourceText: summaryForProcessing });
         finalContent = `
             <div style="border: 1px solid hsl(var(--border)); border-radius: 0.5rem; padding: 1.5rem; background-color: hsl(var(--card));">
                 <div style="margin-bottom: 2rem;">
@@ -207,7 +206,6 @@ export async function generateSummaryAction(
     };
 
   } catch (error) {
-    console.error("Error during AI processing:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la génération ou traduction.";
     throw new Error(errorMessage);
   }
@@ -254,7 +252,6 @@ export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise
     }
     return { id: newSummaryRef.key };
   } catch (error) {
-    console.error("Error saving summary to Realtime Database:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la sauvegarde du résumé.";
     throw new Error(`Impossible de sauvegarder le résumé: ${errorMessage}`);
   }
@@ -262,16 +259,13 @@ export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise
 
 export async function getUserSummariesAction(userId: string): Promise<UserSavedSummary[]> {
   if (!userId) {
-    console.warn("getUserSummariesAction called without userId. Returning empty array.");
     return [];
   }
-  console.log(`getUserSummariesAction: Fetching summaries for userId: ${userId} from Realtime Database`);
   try {
     const userSummariesRef = ref(db, `summaries/${userId}`);
     const snapshot = await get(userSummariesRef);
     
     if (!snapshot.exists()) {
-      console.log(`getUserSummariesAction: No data found for userId: ${userId} in Realtime Database.`);
       return [];
     }
 
@@ -284,15 +278,10 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
       if (data.createdAt && typeof data.createdAt === 'number') {
         createdAtISO = new Date(data.createdAt).toISOString();
       } else if (data.createdAt) {
-        console.warn(`getUserSummariesAction: Summary ${key} has a createdAt field that is not a number. Attempting to parse. Value:`, data.createdAt);
         const parsedDate = new Date(data.createdAt);
         if (!isNaN(parsedDate.getTime())) {
           createdAtISO = parsedDate.toISOString();
-        } else {
-          console.error(`getUserSummariesAction: Summary ${key} createdAt field could not be parsed into a valid date. Defaulting to now.`);
         }
-      } else {
-         console.warn(`getUserSummariesAction: Summary ${key} is missing createdAt field. Defaulting to now.`);
       }
 
       summaries.push({
@@ -314,10 +303,8 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     
     summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    console.log(`getUserSummariesAction: Successfully parsed ${summaries.length} summaries from Realtime Database.`);
     return summaries;
   } catch (error) {
-    console.error("Error fetching user summaries from Realtime Database in getUserSummariesAction:", error);
     return []; 
   }
 }
@@ -331,7 +318,6 @@ export async function deleteSummaryAction(userId: string, summaryId: string): Pr
     await remove(summaryRef);
     return { success: true };
   } catch (error) {
-    console.error("Error deleting summary from Realtime Database:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la suppression du résumé.";
     throw new Error(`Impossible de supprimer le résumé: ${errorMessage}`);
   }
