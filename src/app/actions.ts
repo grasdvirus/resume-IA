@@ -6,6 +6,7 @@ import { summarizeText } from '@/ai/flows/summarize-text';
 import { summarizeYouTubeVideo } from '@/ai/flows/summarize-youtube-video';
 import { translateText } from '@/ai/flows/translate-text-flow';
 import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
+import { generateRevisionSheet } from '@/ai/flows/generate-revision-sheet-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
 import { ref, push, get } from 'firebase/database'; 
@@ -51,11 +52,9 @@ export async function generateSummaryAction(
 ): Promise<SummaryResult> {
   let summaryForProcessing = ''; 
   let sourceName = '';
-  let translatedLabel = "";
-  let quizData: QuizData | undefined = undefined;
-  let processedSummaryForOutput: string; 
-
+  
   try {
+    // Étape 1: Générer le résumé de base à partir de la source (PDF, YouTube, Texte)
     if (inputType === 'text') {
       sourceName = 'Texte personnalisé';
       if (inputValueOrFileName.length < 50) throw new Error('Le texte doit contenir au moins 50 caractères.');
@@ -80,54 +79,103 @@ export async function generateSummaryAction(
       }
     }
 
-    processedSummaryForOutput = summaryForProcessing; 
+    // Étape 2: Préparer le contenu final basé sur le format de sortie
+    let finalContent = summaryForProcessing;
+    let quizData: QuizData | undefined = undefined;
 
-    if (targetLanguage !== 'fr' && processedSummaryForOutput) {
-      const translationResult = await translateText({ textToTranslate: processedSummaryForOutput, targetLanguage: targetLanguage });
-      processedSummaryForOutput = translationResult.translatedText;
-      translatedLabel = ` (Traduit en ${languageMapDisplay[targetLanguage] || targetLanguage})`;
+    if (outputFormat === 'fiche' && summaryForProcessing.trim()) {
+        const revisionSheetData = await generateRevisionSheet({ sourceText: summaryForProcessing });
+        const keyPointsHtml = revisionSheetData.keyPoints.map(point => `<li>${point}</li>`).join('');
+        const qaPairsHtml = revisionSheetData.qaPairs.map(qa => `<dt><strong>${qa.question}</strong></dt><dd>${qa.answer}</dd>`).join('');
+        finalContent = `
+            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em;">Résumé</h3>
+            <p>${revisionSheetData.summary.replace(/\n/g, '<br/>')}</p>
+            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1.2em;">Points clés à retenir</h3>
+            <ul>${keyPointsHtml}</ul>
+            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1.2em;">Questions & Réponses</h3>
+            <dl style="display: grid; grid-template-columns: auto; gap: 0.75em;">${qaPairsHtml}</dl>
+        `;
     }
 
-    if (outputFormat === 'qcm' && processedSummaryForOutput) {
-        quizData = await generateQuiz({ summaryText: processedSummaryForOutput });
+    // Étape 3: Traduire le contenu si nécessaire
+    let translatedLabel = "";
+    if (targetLanguage !== 'fr' && finalContent) {
+        const translationResult = await translateText({ textToTranslate: finalContent, targetLanguage });
+        finalContent = translationResult.translatedText;
+        translatedLabel = ` (Traduit en ${languageMapDisplay[targetLanguage] || targetLanguage})`;
     }
+
+    // Étape 4: Générer le quiz si demandé
+    if (outputFormat === 'qcm' && summaryForProcessing) {
+        let textForQuiz = summaryForProcessing;
+        // Si la langue cible n'est pas le français, traduire le résumé de base avant de générer le quiz
+        if (targetLanguage !== 'fr') {
+            const translatedSummaryResult = await translateText({ textToTranslate: summaryForProcessing, targetLanguage });
+            textForQuiz = translatedSummaryResult.translatedText;
+        }
+        quizData = await generateQuiz({ summaryText: textForQuiz });
+    }
+
+    // Étape 5: Construire l'objet de retour final
+    const finalTitle = `${OutputFormatLabels[outputFormat]} - ${sourceName}${translatedLabel}`;
+    
+    // Pour le QCM et l'audio, le contenu affiché est différent du 'finalContent' (qui peut être un HTML de fiche)
+    if (outputFormat === 'qcm') {
+        let summaryForQcmView = summaryForProcessing;
+        if (targetLanguage !== 'fr') {
+            const result = await translateText({textToTranslate: summaryForProcessing, targetLanguage});
+            summaryForQcmView = result.translatedText;
+        }
+        return {
+            title: finalTitle,
+            content: `<div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none"><p>${summaryForQcmView.replace(/\n/g, '<br/>')}</p></div>`,
+            quizData: quizData,
+        };
+    }
+
+    if (outputFormat === 'audio') {
+        let summaryForAudioView = summaryForProcessing;
+        if (targetLanguage !== 'fr') {
+            const result = await translateText({textToTranslate: summaryForProcessing, targetLanguage});
+            summaryForAudioView = result.translatedText;
+        }
+        const audioContentHtml = summaryForAudioView.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>');
+        return {
+            title: finalTitle,
+            content: `
+              <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio</h4>
+              <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale du résumé.</p>
+              <p>Contenu textuel du résumé :</p>
+              <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
+                <p>${audioContentHtml}</p>
+              </blockquote>
+            `
+        };
+    }
+
+    // Pour 'resume' et 'fiche', le contenu est `finalContent`.
+    if (outputFormat === 'resume' && !finalContent.startsWith('<')) {
+        finalContent = `<p>${finalContent.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`;
+    }
+    
+    return {
+        title: finalTitle,
+        content: finalContent,
+    };
 
   } catch (error) {
     console.error("Error during AI processing:", error);
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la génération ou traduction.";
     throw new Error(errorMessage);
   }
-  
-  const finalContentHtml = processedSummaryForOutput.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>');
-
-
-  if (outputFormat === 'resume' || outputFormat === 'fiche') {
-    return {
-      title: `${outputFormat === 'fiche' ? 'Fiche de révision' : 'Résumé'} - ${sourceName}${translatedLabel}`,
-      content: `<p>${finalContentHtml}</p>`, 
-    };
-  } else if (outputFormat === 'qcm') {
-    return {
-      title: `QCM - ${sourceName}${translatedLabel}`,
-      content: `<div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none"><p>${finalContentHtml}</p></div>`,
-      quizData: quizData,
-    };
-  } else if (outputFormat === 'audio') {
-    return {
-      title: `Version Audio - ${sourceName}${translatedLabel}`,
-      content: `
-        <h4 style="font-weight: bold; margin-bottom: 0.5em;">🎧 Version Audio</h4>
-        <p>Utilisez le bouton "Lire le résumé" ci-dessous pour écouter la synthèse vocale du résumé.</p>
-        <p>Contenu textuel du résumé :</p>
-        <blockquote style="border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic;">
-          <p>${finalContentHtml}</p>
-        </blockquote>
-      `
-    };
-  }
-
-  return { title: `Contenu Inconnu - ${sourceName}${translatedLabel}`, content: `<p>${finalContentHtml}</p>` };
 }
+
+const OutputFormatLabels: Record<OutputFormat, string> = {
+    resume: "Résumé",
+    fiche: "Fiche de révision",
+    qcm: "QCM",
+    audio: "Version Audio"
+};
 
 export interface UserSummaryToSave {
   userId: string;

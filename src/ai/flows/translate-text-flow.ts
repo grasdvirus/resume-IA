@@ -44,6 +44,7 @@ const translateTextPrompt = ai.definePrompt({
   output: {schema: TranslateTextOutputSchema},
   prompt: `Translate the following text into {{targetLanguageName}}.
 The original text is likely in French.
+IMPORTANT: If the text contains HTML tags (like <h2>, <p>, <ul>, <li>, <strong>, <dt>, <dd>), you MUST preserve these tags in their correct positions in the translated output. Only translate the text content within the tags.
 Provide only the translated text, without any introductory phrases like "Here is the translation:" or markdown formatting.
 
 Text to translate:
