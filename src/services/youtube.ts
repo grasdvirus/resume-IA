@@ -1,9 +1,9 @@
 'use server';
+import he from 'he';
 
 interface VideoDetails {
   title: string;
   description: string;
-  tags?: string[];
 }
 
 const YOUTUBE_ID_REGEX = /(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -13,49 +13,86 @@ export async function parseYouTubeVideoId(url: string): Promise<string | null> {
   return match ? match[1] : null;
 }
 
+/**
+ * Scrapes the YouTube video page to get its title and description.
+ * This approach avoids needing a YouTube API key, but it is less reliable
+ * and may break if YouTube changes its page structure.
+ * @param videoId The 11-character YouTube video ID.
+ * @returns An object with the video title and description, or null if scraping fails.
+ */
 export async function getVideoDetails(videoId: string): Promise<VideoDetails | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-
-  if (!apiKey) {
-    // This is a server-side configuration error, so we log it and throw.
-    console.error('[YouTubeService] YouTube API key (YOUTUBE_API_KEY) is missing from environment variables.');
-    throw new Error("La clé API YouTube n'est pas configurée côté serveur. Impossible de récupérer les détails de la vidéo.");
-  }
-
   if (!videoId) {
-    // This should be caught earlier, but as a safeguard.
     console.warn('[YouTubeService] getVideoDetails called with no videoId.');
     return null;
   }
 
-  const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet`;
+  // Using a standard watch URL. Adding hl=en can help get consistent page layouts.
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en`;
 
   try {
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    const response = await fetch(videoUrl, {
+      headers: {
+        // Using a realistic user-agent can help avoid getting blocked.
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    });
 
     if (!response.ok) {
-      // Log the detailed error from the YouTube API for server-side debugging.
-      console.error(`[YouTubeService] YouTube API Error (${response.status}):`, JSON.stringify(data.error, null, 2));
+      console.error(`[YouTubeService] Failed to fetch YouTube page (${response.status}) for URL: ${videoUrl}`);
       return null;
     }
-    
-    if (data.items && data.items.length > 0) {
-      const snippet = data.items[0].snippet;
-      return {
-        title: snippet.title || '',
-        description: snippet.description || '',
-        tags: snippet.tags || [],
-      };
+
+    const html = await response.text();
+
+    let title = '';
+    let description = '';
+
+    // 1. Try to get title from the <title> tag
+    const titleMatch = html.match(/<title>(.+)<\/title>/);
+    if (titleMatch && titleMatch[1]) {
+      // Remove the " - YouTube" suffix
+      title = titleMatch[1].replace(/ - YouTube$/, '').trim();
     }
-    
-    // This case means the API call was successful, but no video was found for the ID.
-    console.warn(`[YouTubeService] No items found in YouTube API response for video ID: ${videoId}`);
-    return null;
+
+    // 2. Try to get description from the player response JSON embedded in the HTML.
+    // This is often more reliable and complete than the meta tag.
+    const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/);
+    if (playerResponseMatch && playerResponseMatch[1]) {
+      try {
+        const playerResponse = JSON.parse(playerResponseMatch[1]);
+        description = playerResponse?.videoDetails?.shortDescription || '';
+        // If title was not found from the <title> tag, get it from here as a fallback
+        if (!title) {
+            title = playerResponse?.videoDetails?.title || '';
+        }
+      } catch (e) {
+        console.warn('[YouTubeService] Failed to parse ytInitialPlayerResponse JSON. Falling back to meta tag.');
+      }
+    }
+
+    // 3. Fallback to meta description tag if the JSON failed or didn't contain a description
+    if (!description) {
+      const metaDescriptionMatch = html.match(/<meta name="description" content="([^"]*)"/);
+      if (metaDescriptionMatch && metaDescriptionMatch[1]) {
+        description = metaDescriptionMatch[1];
+      }
+    }
+
+    // If we couldn't find a title or description, scraping likely failed.
+    if (!title && !description) {
+      console.warn(`[YouTubeService] Could not scrape title or description for video ID: ${videoId}`);
+      return null;
+    }
+
+    // Decode HTML entities (e.g., &quot;, &#39;) to plain text
+    return {
+      title: he.decode(title),
+      description: he.decode(description),
+    };
 
   } catch (error) {
-    // This catches network errors or cases where the response isn't valid JSON.
-    console.error('[YouTubeService] Failed to fetch or parse video details from YouTube API:', error);
+    console.error('[YouTubeService] Error during YouTube page scraping:', error);
     return null;
   }
 }
