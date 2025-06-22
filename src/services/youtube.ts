@@ -2,8 +2,6 @@
 // src/services/youtube.ts
 'use server';
 
-import { YoutubeTranscript } from 'youtube-transcript';
-
 interface VideoDetails {
   title: string;
   description: string;
@@ -28,7 +26,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
 
   if (!apiKey) {
     console.warn('[YouTubeService] YouTube API key (YOUTUBE_API_KEY) is missing from environment variables. Skipping fetching video details.');
-    return null;
+    throw new Error("La clé API YouTube n'est pas configurée côté serveur. Impossible de récupérer les détails de la vidéo.");
   }
   console.log('[YouTubeService] Using YouTube API Key (first 5 chars):', apiKey.substring(0, 5) + '...');
 
@@ -38,7 +36,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     return null;
   }
 
-  const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet,contentDetails`;
+  const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet`;
   console.log('[YouTubeService] Constructed API URL:', apiUrl);
 
   try {
@@ -46,13 +44,12 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     const response = await fetch(apiUrl);
     console.log('[YouTubeService] YouTube API response status:', response.status);
 
-    const responseText = await response.text(); // Get text first to log it
-    console.log('[YouTubeService] YouTube API raw response text:', responseText);
+    const responseText = await response.text(); 
 
 
     if (!response.ok) {
       try {
-        const errorData = JSON.parse(responseText); // Try to parse error
+        const errorData = JSON.parse(responseText); 
         console.error(`[YouTubeService] YouTube API error (${response.status}):`, errorData.error?.message || 'Unknown error from API');
       } catch (parseError) {
         console.error(`[YouTubeService] YouTube API error (${response.status}), and failed to parse error response:`, responseText);
@@ -60,7 +57,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
       return null;
     }
     
-    const data = JSON.parse(responseText); // Parse successful response
+    const data = JSON.parse(responseText); 
 
     if (data.items && data.items.length > 0) {
       const snippet = data.items[0].snippet;
@@ -76,21 +73,6 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     return null;
   } catch (error) {
     console.error('[YouTubeService] Failed to fetch video details from YouTube API (network or other error):', error);
-    return null;
-  }
-}
-
-export async function getYouTubeTranscript(videoId: string): Promise<string | null> {
-  try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    if (!transcript || transcript.length === 0) {
-      console.warn(`[YouTubeService] Transcript is empty or unavailable for video ID: ${videoId}`);
-      return null;
-    }
-    // Combine all transcript parts into a single string
-    return transcript.map(item => item.text).join(' ');
-  } catch (error) {
-    console.error(`[YouTubeService] Could not fetch transcript for video ID: ${videoId}. It may be disabled for this video.`, error);
     return null;
   }
 }
