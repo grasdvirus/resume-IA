@@ -1,5 +1,8 @@
 
 // src/services/youtube.ts
+'use server';
+
+import { YoutubeTranscript } from 'youtube-transcript';
 
 interface VideoDetails {
   title: string;
@@ -73,6 +76,21 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     return null;
   } catch (error) {
     console.error('[YouTubeService] Failed to fetch video details from YouTube API (network or other error):', error);
+    return null;
+  }
+}
+
+export async function getYouTubeTranscript(videoId: string): Promise<string | null> {
+  try {
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    if (!transcript || transcript.length === 0) {
+      console.warn(`[YouTubeService] Transcript is empty or unavailable for video ID: ${videoId}`);
+      return null;
+    }
+    // Combine all transcript parts into a single string
+    return transcript.map(item => item.text).join(' ');
+  } catch (error) {
+    console.error(`[YouTubeService] Could not fetch transcript for video ID: ${videoId}. It may be disabled for this video.`, error);
     return null;
   }
 }
