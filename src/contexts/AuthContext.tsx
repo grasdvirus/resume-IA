@@ -5,7 +5,6 @@ import type { User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { Loader2 } from 'lucide-react';
 
 interface AuthContextType {
   user: User | null;
@@ -31,14 +30,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await firebaseSignOut(auth);
     setUser(null);
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>
