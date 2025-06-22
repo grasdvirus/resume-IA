@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Summarizes a YouTube video given its URL by fetching its metadata (title and description).
@@ -67,30 +66,28 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     outputSchema: SummarizeYouTubeVideoOutputSchema,
   },
   async (input) => {
-    console.log('[Flow:summarizeYouTubeVideo] Received input:', input);
     const videoId = await parseYouTubeVideoId(input.youtubeVideoUrl);
     
     if (!videoId) {
       throw new Error("L'URL de la vidéo YouTube est invalide ou l'ID n'a pas pu être extrait.");
     }
     
-    console.log(`[Flow:summarizeYouTubeVideo] Parsed video ID: ${videoId}`);
-    const lengthInstruction = lengthInstructionsMap[input.summaryLength];
-    
     const videoDetails = await getVideoDetails(videoId);
 
     if (!videoDetails) {
-        throw new Error(`Impossible de récupérer les détails (titre/description) pour la vidéo. Le résumé ne peut pas être généré.`);
+        throw new Error(`Impossible de récupérer les détails (titre/description) pour la vidéo. Vérifiez l'URL ou la validité de la clé API YouTube.`);
     }
 
+    const lengthInstruction = lengthInstructionsMap[input.summaryLength];
+
     const { output } = await summarizeYouTubePrompt({
-        videoTitle: videoDetails.title || 'Titre inconnu',
-        videoDescription: videoDetails.description || 'Aucune description disponible.',
+        videoTitle: videoDetails.title || 'Titre non disponible',
+        videoDescription: videoDetails.description || 'Aucune description fournie.',
         lengthInstruction,
     });
     
      if (!output || !output.summary) {
-        throw new Error("La génération du résumé à partir des métadonnées a échoué.");
+        throw new Error("La génération du résumé à partir des métadonnées de la vidéo a échoué.");
     }
     return output;
   }
