@@ -1,4 +1,3 @@
-
 // src/app/actions.ts
 'use server';
 
@@ -85,15 +84,44 @@ export async function generateSummaryAction(
 
     if (outputFormat === 'fiche' && summaryForProcessing.trim()) {
         const revisionSheetData = await generateRevisionSheet({ sourceText: summaryForProcessing });
-        const keyPointsHtml = revisionSheetData.keyPoints.map(point => `<li>${point}</li>`).join('');
-        const qaPairsHtml = revisionSheetData.qaPairs.map(qa => `<dt><strong>${qa.question}</strong></dt><dd>${qa.answer}</dd>`).join('');
         finalContent = `
-            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em;">Résumé</h3>
-            <p>${revisionSheetData.summary.replace(/\n/g, '<br/>')}</p>
-            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1.2em;">Points clés à retenir</h3>
-            <ul>${keyPointsHtml}</ul>
-            <h3 style="font-size: 1.2em; font-weight: bold; margin-bottom: 0.5em; margin-top: 1.2em;">Questions & Réponses</h3>
-            <dl style="display: grid; grid-template-columns: auto; gap: 0.75em;">${qaPairsHtml}</dl>
+            <div style="border: 1px solid hsl(var(--border)); border-radius: 0.5rem; padding: 1.5rem; background-color: hsl(var(--card));">
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.25em; font-weight: 600; color: hsl(var(--primary)); margin-bottom: 0.75em;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.25em; height: 1.25em;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+                        Résumé
+                    </h3>
+                    <p style="color: hsl(var(--foreground)); line-height: 1.6;">${revisionSheetData.summary.replace(/\n/g, '<br/>')}</p>
+                </div>
+
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.25em; font-weight: 600; color: hsl(var(--primary)); margin-bottom: 0.75em;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.25em; height: 1.25em;"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+                        Points clés à retenir
+                    </h3>
+                    <ul style="list-style: none; padding-left: 0;">
+                        ${revisionSheetData.keyPoints.map(point => `<li style="display: flex; align-items: start; gap: 0.75rem; margin-bottom: 0.5rem; color: hsl(var(--foreground)); line-height: 1.6;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.1em; height: 1.1em; flex-shrink: 0; margin-top: 0.2em; color: hsl(var(--accent));"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>${point}</span>
+                        </li>`).join('')}
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.25em; font-weight: 600; color: hsl(var(--primary)); margin-bottom: 1em;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.25em; height: 1.25em;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                        Questions & Réponses
+                    </h3>
+                    <dl style="display: grid; grid-template-columns: auto; gap: 1.25rem;">
+                        ${revisionSheetData.qaPairs.map(qa => `
+                            <div>
+                                <dt style="font-weight: 600; color: hsl(var(--foreground)); margin-bottom: 0.25rem;">${qa.question}</dt>
+                                <dd style="padding-left: 1.5rem; border-left: 3px solid hsl(var(--accent)); color: hsl(var(--muted-foreground)); font-style: italic;">${qa.answer}</dd>
+                            </div>
+                        `).join('')}
+                    </dl>
+                </div>
+            </div>
         `;
     }
 
