@@ -13,7 +13,7 @@ interface VideoDetails {
 // Regex to parse YouTube video ID from various URL formats
 const YOUTUBE_ID_REGEX = /(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
-export function parseYouTubeVideoId(url: string): string | null {
+export async function parseYouTubeVideoId(url: string): Promise<string | null> {
   console.log('[YouTubeService] Parsing URL:', url);
   const match = url.match(YOUTUBE_ID_REGEX);
   const videoId = match ? match[1] : null;

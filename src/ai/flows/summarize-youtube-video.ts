@@ -91,7 +91,7 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
   },
   async (input) => {
     console.log('[Flow:summarizeYouTubeVideo] Received input:', input);
-    const videoId = parseYouTubeVideoId(input.youtubeVideoUrl);
+    const videoId = await parseYouTubeVideoId(input.youtubeVideoUrl);
     
     if (!videoId) {
       throw new Error("L'URL de la vidéo YouTube est invalide ou l'ID n'a pas pu être extrait.");
