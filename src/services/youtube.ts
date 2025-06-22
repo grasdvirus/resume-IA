@@ -1,4 +1,5 @@
 'use server';
+import { google } from 'googleapis';
 import he from 'he';
 
 interface VideoDetails {
@@ -14,81 +15,48 @@ export async function parseYouTubeVideoId(url: string): Promise<string | null> {
 }
 
 /**
- * Scrapes the YouTube video page to get its title and description.
- * This approach avoids needing a YouTube API key, but it is less reliable
- * and may break if YouTube changes its page structure.
+ * Uses the official YouTube Data API v3 to get video details.
+ * This is the recommended and most reliable method for production environments.
  * @param videoId The 11-character YouTube video ID.
- * @returns An object with the video title and description, or null if scraping fails.
+ * @returns An object with the video title and description, or null if it fails.
  */
 export async function getVideoDetails(videoId: string): Promise<VideoDetails | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+
+  if (!apiKey) {
+    // This error will be caught in the flow and a more user-friendly message will be shown.
+    throw new Error('YOUTUBE_API_KEY environment variable is not set.');
+  }
+  
   if (!videoId) {
     return null;
   }
 
-  // Using a standard watch URL. Adding hl=en can help get consistent page layouts.
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en`;
-
   try {
-    const response = await fetch(videoUrl, {
-      headers: {
-        // Using a realistic user-agent can help avoid getting blocked.
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
+    const youtube = google.youtube({
+      version: 'v3',
+      auth: apiKey,
     });
 
-    if (!response.ok) {
+    const response = await youtube.videos.list({
+      part: ['snippet'],
+      id: [videoId],
+    });
+
+    const video = response.data.items?.[0];
+
+    if (!video || !video.snippet) {
       return null;
     }
 
-    const html = await response.text();
-
-    let title = '';
-    let description = '';
-
-    // 1. Try to get title from the <title> tag
-    const titleMatch = html.match(/<title>(.+)<\/title>/);
-    if (titleMatch && titleMatch[1]) {
-      // Remove the " - YouTube" suffix
-      title = titleMatch[1].replace(/ - YouTube$/, '').trim();
-    }
-
-    // 2. Try to get description from the player response JSON embedded in the HTML.
-    // This is often more reliable and complete than the meta tag.
-    const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/);
-    if (playerResponseMatch && playerResponseMatch[1]) {
-      try {
-        const playerResponse = JSON.parse(playerResponseMatch[1]);
-        description = playerResponse?.videoDetails?.shortDescription || '';
-        // If title was not found from the <title> tag, get it from here as a fallback
-        if (!title) {
-            title = playerResponse?.videoDetails?.title || '';
-        }
-      } catch (e) {
-        // Fallback to meta tag if JSON parsing fails
-      }
-    }
-
-    // 3. Fallback to meta description tag if the JSON failed or didn't contain a description
-    if (!description) {
-      const metaDescriptionMatch = html.match(/<meta name="description" content="([^"]*)"/);
-      if (metaDescriptionMatch && metaDescriptionMatch[1]) {
-        description = metaDescriptionMatch[1];
-      }
-    }
-
-    // If we couldn't find a title or description, scraping likely failed.
-    if (!title && !description) {
-      return null;
-    }
-
-    // Decode HTML entities (e.g., &quot;, &#39;) to plain text
+    // Decode HTML entities from title and description
     return {
-      title: he.decode(title),
-      description: he.decode(description),
+      title: he.decode(video.snippet.title || ''),
+      description: he.decode(video.snippet.description || ''),
     };
 
-  } catch (error) {
+  } catch (error: any) {
+    // Return null to indicate failure, the flow will handle the user-facing error message.
     return null;
   }
 }

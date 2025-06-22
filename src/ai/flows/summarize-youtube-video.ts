@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Summarizes a YouTube video given its URL by fetching its metadata (title and description).
+ * @fileOverview Summarizes a YouTube video given its URL by fetching its details via the YouTube API.
  *
  * - summarizeYouTubeVideo - A function that handles the summarization process.
  * - SummarizeYouTubeVideoInput - The input type for the summarizeYouTubeVideo function.
@@ -75,7 +75,7 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     const videoDetails = await getVideoDetails(videoId);
 
     if (!videoDetails) {
-        throw new Error(`Impossible de récupérer les détails (titre/description) pour la vidéo. L'URL est peut-être incorrecte ou la vidéo n'est plus disponible.`);
+        throw new Error(`Impossible de récupérer les détails de la vidéo. Vérifiez que l'URL est correcte, que la vidéo est publique et que votre clé d'API YouTube est correctement configurée sur le serveur.`);
     }
 
     const lengthInstruction = lengthInstructionsMap[input.summaryLength];
