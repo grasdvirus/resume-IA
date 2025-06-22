@@ -172,17 +172,17 @@ export function ResumAIHeader() {
         isMobile ? (
           <>
             <li className={`py-2 px-3 border-b border-border text-base`}>
-              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/profile?tab=account" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
                 <User className="mr-2 h-5 w-5"/> Profil
               </Link>
             </li>
              <li className={`py-2 px-3 border-b border-border text-base`}>
-              <Link href="/profile#preferences-section" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/profile?tab=preferences" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
                 <Settings className="mr-2 h-5 w-5"/> Préférences
               </Link>
             </li>
              <li className={`py-2 px-3 border-b border-border text-base`}>
-              <Link href="/profile" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/profile?tab=summaries" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
                 <FolderArchive className="mr-2 h-5 w-5"/> Mes Résumés
               </Link>
             </li>
@@ -215,19 +215,19 @@ export function ResumAIHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer">
+                <Link href="/profile?tab=account" className="cursor-pointer">
                   <User className="mr-2 h-4 w-4" />
                   Profil
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/profile#preferences-section" className="cursor-pointer">
+                <Link href="/profile?tab=preferences" className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   Préférences
                 </Link>
               </DropdownMenuItem>
                <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer"> 
+                <Link href="/profile?tab=summaries" className="cursor-pointer"> 
                   <FolderArchive className="mr-2 h-4 w-4" />
                   Mes Résumés
                 </Link>
