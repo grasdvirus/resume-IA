@@ -1,5 +1,4 @@
 'use server';
-import { google } from 'googleapis';
 import he from 'he';
 
 interface VideoDetails {
@@ -15,48 +14,56 @@ export async function parseYouTubeVideoId(url: string): Promise<string | null> {
 }
 
 /**
- * Uses the official YouTube Data API v3 to get video details.
- * This is the recommended and most reliable method for production environments.
+ * Scrapes the YouTube page to get video details without an API key.
+ * This can be less reliable than the API but avoids the need for an API key.
  * @param videoId The 11-character YouTube video ID.
  * @returns An object with the video title and description, or null if it fails.
  */
 export async function getVideoDetails(videoId: string): Promise<VideoDetails | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-
-  if (!apiKey) {
-    // This error will be caught in the flow and a more user-friendly message will be shown.
-    throw new Error('YOUTUBE_API_KEY environment variable is not set.');
-  }
-  
   if (!videoId) {
     return null;
   }
 
   try {
-    const youtube = google.youtube({
-      version: 'v3',
-      auth: apiKey,
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const response = await fetch(videoUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
     });
 
-    const response = await youtube.videos.list({
-      part: ['snippet'],
-      id: [videoId],
-    });
-
-    const video = response.data.items?.[0];
-
-    if (!video || !video.snippet) {
+    if (!response.ok) {
       return null;
     }
 
-    // Decode HTML entities from title and description
+    const html = await response.text();
+
+    // The video metadata is often in a JSON object inside a script tag.
+    // This is the most reliable scraping method.
+    const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/);
+    if (playerResponseMatch && playerResponseMatch[1]) {
+      const playerResponse = JSON.parse(playerResponseMatch[1]);
+      const videoDetailsData = playerResponse?.videoDetails;
+
+      if (videoDetailsData && videoDetailsData.title && videoDetailsData.shortDescription) {
+        return {
+          title: he.decode(videoDetailsData.title),
+          description: he.decode(videoDetailsData.shortDescription),
+        };
+      }
+    }
+    
+    // Fallback if the primary scraping method fails
+    const titleMatch = html.match(/<title>(.+) - YouTube<\/title>/);
+    const title = titleMatch ? he.decode(titleMatch[1]) : 'Titre non disponible';
+
     return {
-      title: he.decode(video.snippet.title || ''),
-      description: he.decode(video.snippet.description || ''),
+      title: title,
+      description: 'Description non disponible (méthode de secours).',
     };
 
-  } catch (error: any) {
-    // Return null to indicate failure, the flow will handle the user-facing error message.
+  } catch (error) {
     return null;
   }
 }

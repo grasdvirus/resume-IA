@@ -75,7 +75,7 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     const videoDetails = await getVideoDetails(videoId);
 
     if (!videoDetails) {
-        throw new Error(`Impossible de récupérer les détails de la vidéo. Vérifiez que l'URL est correcte, que la vidéo est publique et que votre clé d'API YouTube est correctement configurée sur le serveur.`);
+        throw new Error(`Impossible de récupérer les détails de la vidéo. Vérifiez que l'URL est correcte, que la vidéo est publique et qu'elle n'est pas soumise à une restriction d'âge.`);
     }
 
     const lengthInstruction = lengthInstructionsMap[input.summaryLength];
