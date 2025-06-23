@@ -1,8 +1,8 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getDatabase, type Database } from 'firebase/database'; // Changed import for Realtime Database
-import { getAnalytics, type Analytics } from 'firebase/analytics';
+import { getDatabase, type Database } from 'firebase/database';
+import { getAnalytics, type Analytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,14 +12,21 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  // Programmatically construct the databaseURL to ensure the correct format.
   databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`,
 };
+
+// Check for missing keys and throw a more helpful error.
+// This check runs when this module is first imported.
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    throw new Error(
+        "Firebase configuration is missing or invalid. Please ensure NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID are set in your .env file."
+    );
+}
 
 // Initialize Firebase
 let app: FirebaseApp;
 let auth: Auth;
-let db: Database; // Changed type to Database (Realtime Database)
+let db: Database;
 let analytics: Analytics | undefined;
 
 if (!getApps().length) {
@@ -29,12 +36,16 @@ if (!getApps().length) {
 }
 
 auth = getAuth(app);
-db = getDatabase(app); // Changed to getDatabase for Realtime Database
+db = getDatabase(app);
 
-// Initialize Firebase Analytics only on the client side
+// Initialize Firebase Analytics only on the client side, and only if supported.
 if (typeof window !== 'undefined') {
   if (firebaseConfig.measurementId) {
-    analytics = getAnalytics(app);
+    isSupported().then((supported) => {
+      if (supported) {
+        analytics = getAnalytics(app);
+      }
+    });
   }
 }
 
