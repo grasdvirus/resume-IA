@@ -1,3 +1,4 @@
+
 'use server';
 
 import { google } from 'googleapis';
@@ -53,14 +54,23 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
     };
     
   } catch (error: any) {
-    // Intercept common API errors to give more specific feedback.
-    if (error.message.includes('API key not valid') || error.message.includes('invalid')) {
-        throw new Error("La clé API YouTube (YOUTUBE_API_KEY) est invalide. Veuillez vérifier sa valeur dans votre environnement de déploiement (Vercel).");
+    // Google API errors often have a more detailed structure.
+    if (error.errors && error.errors.length > 0) {
+      const reason = error.errors[0].reason;
+      if (reason === 'keyInvalid' || error.message.includes('API key not valid')) {
+        throw new Error("La clé API YouTube (YOUTUBE_API_KEY) est invalide. Veuillez vérifier sa valeur dans les variables d'environnement de Vercel.");
+      }
+      if (reason === 'ipRefererBlocked' || reason === 'httpRefererBlocked') {
+        throw new Error("La requête a été bloquée à cause des restrictions de la clé API. Assurez-vous que le domaine de votre application Vercel est autorisé dans les 'Restrictions de clé API' (HTTP referrers) sur la console Google Cloud.");
+      }
+      if (reason === 'accessNotConfigured' || reason === 'forbidden') {
+         throw new Error("L'accès à l'API YouTube n'est pas configuré. Veuillez vous assurer que l'API 'YouTube Data API v3' est bien activée pour votre projet sur la console Google Cloud.");
+      }
+      if (reason && reason.toLowerCase().includes('quota')) {
+        throw new Error("Le quota de l'API YouTube a été dépassé. Veuillez vérifier votre consommation sur la console Google Cloud.");
+      }
     }
-    if (error.message.includes('quota')) {
-       throw new Error("Le quota de l'API YouTube a été dépassé. Veuillez vérifier votre consommation sur la console Google Cloud.");
-    }
-    // Generic error for other issues (network, permissions, etc.)
+    // Generic error for other issues (network, etc.) or if the error structure is unexpected.
     throw new Error("Impossible de contacter l'API YouTube. Vérifiez la clé API, les quotas, et les restrictions (par ex: HTTP referrers) sur la console Google Cloud.");
   }
 }
