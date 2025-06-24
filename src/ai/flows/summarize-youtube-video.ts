@@ -74,15 +74,16 @@ const summarizeYouTubeVideoFlow = ai.defineFlow(
     
     const videoDetails = await getVideoDetails(videoId);
 
-    if (!videoDetails) {
-        throw new Error(`Impossible de récupérer les détails de la vidéo. Vérifiez que l'URL est correcte, que la vidéo est publique et qu'elle n'est pas soumise à une restriction d'âge.`);
+    // Robust check to prevent "faux retour"
+    if (!videoDetails || !videoDetails.description || videoDetails.description.trim().length < 20) {
+        throw new Error(`Impossible de récupérer une description de vidéo suffisamment longue pour un résumé. Cela peut être dû à une clé API mal configurée, à une vidéo sans description, privée ou soumise à une restriction d'âge.`);
     }
 
     const lengthInstruction = lengthInstructionsMap[input.summaryLength];
 
     const { output } = await summarizeYouTubePrompt({
         videoTitle: videoDetails.title || 'Titre non disponible',
-        videoDescription: videoDetails.description || 'Aucune description fournie.',
+        videoDescription: videoDetails.description, // No fallback needed due to the check above
         lengthInstruction,
     });
     

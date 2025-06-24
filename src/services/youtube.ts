@@ -1,4 +1,6 @@
 'use server';
+
+import { google } from 'googleapis';
 import he from 'he';
 
 interface VideoDetails {
@@ -14,8 +16,8 @@ export async function parseYouTubeVideoId(url: string): Promise<string | null> {
 }
 
 /**
- * Scrapes the YouTube page to get video details without an API key.
- * This can be less reliable than the API but avoids the need for an API key.
+ * Fetches video details using the official YouTube Data API v3.
+ * This is the robust method for production environments.
  * @param videoId The 11-character YouTube video ID.
  * @returns An object with the video title and description, or null if it fails.
  */
@@ -23,47 +25,42 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails | n
   if (!videoId) {
     return null;
   }
+  
+  if (!process.env.YOUTUBE_API_KEY) {
+    throw new Error("Configuration du serveur incomplète : la variable d'environnement YOUTUBE_API_KEY est manquante. Veuillez l'ajouter à vos paramètres Vercel.");
+  }
 
   try {
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const response = await fetch(videoUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
+    const youtube = google.youtube({
+      version: 'v3',
+      auth: process.env.YOUTUBE_API_KEY,
     });
 
-    if (!response.ok) {
-      return null;
+    const response = await youtube.videos.list({
+      part: ['snippet'],
+      id: [videoId],
+    });
+
+    const video = response.data.items?.[0];
+
+    if (!video || !video.snippet) {
+      throw new Error("La vidéo n'a pas été trouvée ou ses détails sont inaccessibles via l'API. La vidéo est peut-être privée ou a été supprimée.");
     }
-
-    const html = await response.text();
-
-    // The video metadata is often in a JSON object inside a script tag.
-    // This is the most reliable scraping method.
-    const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.*?});/);
-    if (playerResponseMatch && playerResponseMatch[1]) {
-      const playerResponse = JSON.parse(playerResponseMatch[1]);
-      const videoDetailsData = playerResponse?.videoDetails;
-
-      if (videoDetailsData && videoDetailsData.title && videoDetailsData.shortDescription) {
-        return {
-          title: he.decode(videoDetailsData.title),
-          description: he.decode(videoDetailsData.shortDescription),
-        };
-      }
-    }
-    
-    // Fallback if the primary scraping method fails
-    const titleMatch = html.match(/<title>(.+) - YouTube<\/title>/);
-    const title = titleMatch ? he.decode(titleMatch[1]) : 'Titre non disponible';
 
     return {
-      title: title,
-      description: 'Description non disponible (méthode de secours).',
+      title: he.decode(video.snippet.title || 'Titre non disponible'),
+      description: he.decode(video.snippet.description || ''), // Return empty string instead of fallback text
     };
-
-  } catch (error) {
-    return null;
+    
+  } catch (error: any) {
+    // Intercept common API errors to give more specific feedback.
+    if (error.message.includes('API key not valid') || error.message.includes('invalid')) {
+        throw new Error("La clé API YouTube (YOUTUBE_API_KEY) est invalide. Veuillez vérifier sa valeur dans votre environnement de déploiement (Vercel).");
+    }
+    if (error.message.includes('quota')) {
+       throw new Error("Le quota de l'API YouTube a été dépassé. Veuillez vérifier votre consommation sur la console Google Cloud.");
+    }
+    // Generic error for other issues (network, permissions, etc.)
+    throw new Error("Impossible de contacter l'API YouTube. Vérifiez la clé API, les quotas, et les restrictions (par ex: HTTP referrers) sur la console Google Cloud.");
   }
 }
