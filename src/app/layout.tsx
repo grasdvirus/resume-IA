@@ -54,6 +54,9 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Google AdSense Script for Site Verification and Ad Serving */}
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9832899883717423"
+     crossOrigin="anonymous"></script>
       </head>
       <body className="font-body antialiased bg-background text-foreground">
         <AuthProvider>
