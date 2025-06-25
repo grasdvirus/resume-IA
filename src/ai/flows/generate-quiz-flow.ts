@@ -73,48 +73,13 @@ const generateQuizFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await generateQuizPrompt(input);
-    if (!output) {
-      throw new Error("La génération du quiz n'a pas produit de sortie.");
-    }
     
-    if (!output.questions || output.questions.length === 0) {
-        // Fallback conforme au schéma (au moins 3 options par question, et au moins 3 questions)
-        return { 
-            questions: [
-                {
-                    id: "fallback_q1",
-                    questionText: "Le résumé fourni semble trop court ou complexe pour générer un quiz automatiquement (question 1). Veuillez essayer avec un autre résumé.",
-                    options: [
-                        {id: "f_q1_a", text: "Option A (Fallback)"},
-                        {id: "f_q1_b", text: "Option B (Fallback)"},
-                        {id: "f_q1_c", text: "Option C (Fallback - Correcte)"}
-                    ],
-                    correctAnswerId: "f_q1_c",
-                    explanation: "Ceci est un message de fallback."
-                },
-                {
-                    id: "fallback_q2",
-                    questionText: "Question de fallback 2 pour assurer la conformité du schéma.",
-                    options: [
-                        {id: "f_q2_a", text: "Option A"},
-                        {id: "f_q2_b", text: "Option B (Correcte)"},
-                        {id: "f_q2_c", text: "Option C"}
-                    ],
-                    correctAnswerId: "f_q2_b",
-                },
-                {
-                    id: "fallback_q3",
-                    questionText: "Question de fallback 3.",
-                    options: [
-                        {id: "f_q3_a", text: "Option X (Correcte)"},
-                        {id: "f_q3_b", text: "Option Y"},
-                        {id: "f_q3_c", text: "Option Z"}
-                    ],
-                    correctAnswerId: "f_q3_a",
-                }
-            ]
-        };
+    // Genkit retourne `null` pour `output` si la réponse de l'IA ne correspond pas au schéma de sortie (par ex. si le texte est trop court pour générer 3 questions).
+    // Nous interceptons ce cas pour retourner une erreur claire à l'utilisateur.
+    if (!output) {
+      throw new Error("Impossible de générer un quiz à partir du texte fourni. Il est peut-être trop court ou manque de contenu pertinent. Veuillez essayer avec un résumé plus détaillé.");
     }
+
     return output;
   }
 );
