@@ -406,10 +406,10 @@ export function SummarizerClientWrapper() {
   return (
     <section id="upload-section" className="container mx-auto px-2 sm:px-6 lg:px-8 py-12">
       <Card className="shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 ease-in-out">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center px-4 pt-6 pb-6 md:p-6">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pt-0 md:p-6 md:pt-0">
           {!summaryResult && !isProcessing && (
             <>
               <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
@@ -554,7 +554,7 @@ export function SummarizerClientWrapper() {
               )}
               
               <Card className="mb-6 shadow-inner bg-muted/30">
-                <CardContent id="summaryContent" className="p-4 md:p-6">
+                <CardContent id="summaryContent" className="p-3 md:p-6">
                     {selectedOutputFormat === 'qcm' && summaryResult.quizData ? (
                         <QuizView quizData={summaryResult.quizData} summaryContent={summaryResult.content} />
                     ) : (
@@ -691,3 +691,5 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
+
+    
