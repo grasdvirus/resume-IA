@@ -9,6 +9,9 @@ import { SettingsProvider } from '@/contexts/SettingsContext'; // Import Setting
 export const metadata: Metadata = {
   title: 'ResumAI - Résumez tout en quelques secondes',
   description: 'Documents PDF, vidéos YouTube, cours... Notre IA transforme vos contenus en résumés clairs et exploitables',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({
