@@ -404,7 +404,7 @@ export function SummarizerClientWrapper() {
   };
 
   return (
-    <section id="upload-section" className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <section id="upload-section" className="container mx-auto px-2 sm:px-6 lg:px-8 py-12">
       <Card className="shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 ease-in-out">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
@@ -554,7 +554,7 @@ export function SummarizerClientWrapper() {
               )}
               
               <Card className="mb-6 shadow-inner bg-muted/30">
-                <CardContent id="summaryContent" className="p-6">
+                <CardContent id="summaryContent" className="p-4 md:p-6">
                     {selectedOutputFormat === 'qcm' && summaryResult.quizData ? (
                         <QuizView quizData={summaryResult.quizData} summaryContent={summaryResult.content} />
                     ) : (
@@ -563,23 +563,23 @@ export function SummarizerClientWrapper() {
                 </CardContent>
               </Card>
 
-              <div className="flex flex-wrap gap-3 justify-center items-end">
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 items-center">
                 {user && (
                   <Button 
                     onClick={handleSaveSummary} 
                     variant="default" 
-                    className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out h-10"
+                    className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out h-10"
                     disabled={isSaving || summarySaved}
                   >
                     {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                     {summarySaved ? "Sauvegardé" : "Sauvegarder"}
                   </Button>
                 )}
-                <Button onClick={downloadResult} variant="outline" className="text-foreground h-10"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
-                <Button onClick={shareResult} variant="outline" className="text-foreground h-10"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
-                <Button onClick={handleExportPdf} variant="outline" className="text-foreground h-10"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
+                <Button onClick={downloadResult} variant="outline" className="w-full sm:w-auto text-foreground h-10"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
+                <Button onClick={shareResult} variant="outline" className="w-full sm:w-auto text-foreground h-10"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
+                <Button onClick={handleExportPdf} variant="outline" className="w-full sm:w-auto text-foreground h-10"><Printer className="mr-2 h-5 w-5" />Export PDF</Button>
                 
-                <div className="flex items-end gap-2">
+                <div className="w-full sm:w-auto flex justify-center items-end gap-2">
                   <div>
                     <Label htmlFor="speech-rate-select" className="mb-1 block text-xs text-muted-foreground text-center sm:text-left">Vitesse</Label>
                     <Select
@@ -605,7 +605,7 @@ export function SummarizerClientWrapper() {
                   </Button>
                 </div>
 
-                <Button onClick={handleNewSummary} variant="secondary" className="h-10"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
+                <Button onClick={handleNewSummary} variant="secondary" className="w-full sm:w-auto h-10"><Plus className="mr-2 h-5 w-5" />Nouveau résumé</Button>
               </div>
             </div>
           )}
