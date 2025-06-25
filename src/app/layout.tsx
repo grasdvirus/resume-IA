@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   title: 'ResumAI - Résumez tout en quelques secondes',
   description: 'Documents PDF, vidéos YouTube, cours... Notre IA transforme vos contenus en résumés clairs et exploitables',
   icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
+    icon: '/favico.png',
+    apple: '/favico.png',
   },
 };
 
