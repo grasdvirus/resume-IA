@@ -9,9 +9,6 @@ import { SettingsProvider } from '@/contexts/SettingsContext'; // Import Setting
 export const metadata: Metadata = {
   title: 'ResumAI - Résumez tout en quelques secondes',
   description: 'Documents PDF, vidéos YouTube, cours... Notre IA transforme vos contenus en résumés clairs et exploitables',
-  icons: {
-    icon: '/favicon.png',
-  },
 };
 
 export default function RootLayout({
@@ -22,6 +19,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="any" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
