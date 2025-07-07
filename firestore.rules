@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /summaries/{summaryId} {
+      // RÈGLE MODIFIÉE POUR LA CRÉATION PAR SERVER ACTION :
+      // Autoriser la création si les données entrantes ('request.resource.data')
+      // contiennent un champ 'userId' qui est une chaîne de caractères non vide.
+      // Cela suppose que votre Server Action est responsable de s'assurer
+      // que 'summaryData.userId' est bien l'UID de l'utilisateur authentifié.
+      allow create: if request.resource.data.userId is string && request.resource.data.userId.size() > 0;
+
+      // La règle de lecture reste la même, car elle sera probablement utilisée côté client
+      // où request.auth sera disponible.
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Laissez update et delete commentés pour l'instant.
+      // Si vous les activez pour des Server Actions, ils suivront une logique similaire à 'create'.
+      // Si c'est pour le client, la logique avec request.auth est bonne.
+      // allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Si vous avez d'autres collections, leurs règles iraient ici.
+    // Exemple :
+    // match /users/{userId} {
+    //   allow read: if true;
+    //   allow write: if request.auth != null && request.auth.uid == userId;
+    // }
+  }
+}
