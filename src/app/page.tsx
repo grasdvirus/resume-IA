@@ -13,7 +13,7 @@ export default function HomePage() {
         <Features />
       </main>
       <footer className="py-8 text-center text-muted-foreground bg-card border-t">
-        <p>&copy; {new Date().getFullYear()} Résumé IA. Tous droits réservés.</p>
+        <p>&copy; {new Date().getFullYear()} Résumé IA. Tous droits réservés. VEX </p>
       </footer>
     </div>
   );
