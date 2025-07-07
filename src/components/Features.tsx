@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Target, Shuffle, Smartphone, Languages, QrCode } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import { cn } from "@/lib/utils";
 
 const featuresData = [
   {
@@ -55,18 +54,11 @@ export function Features() {
         <h2 className="text-3xl md:text-4xl font-bold font-headline text-center mb-12 text-shadow shadow-black/20 dark:shadow-white/20">
           Pourquoi choisir Résumé IA ?
         </h2>
-        <div className={cn(
-          "flex overflow-x-auto space-x-4 pb-4 scroll-hover", 
-          "md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0 md:pb-0 md:overflow-x-visible"
-        )}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {featuresData.map((feature, index) => (
             <Card 
               key={index} 
-              className={cn(
-                "flex-shrink-0 w-[280px] sm:w-[300px]", 
-                "md:w-auto", 
-                "text-center shadow-lg hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex flex-col"
-              )}
+              className="text-center shadow-lg hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex flex-col"
             >
               <CardHeader>
                 <div className="flex justify-center mb-4">{feature.icon}</div>

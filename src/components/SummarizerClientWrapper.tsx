@@ -38,7 +38,6 @@ interface OptionCardProps {
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
-      "flex-shrink-0 w-[240px] sm:w-auto", 
       "p-4 border-2 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out h-full flex flex-col justify-between", 
       "hover:border-primary hover:bg-gradient-to-br hover:from-primary/15 hover:to-primary/5 hover:shadow-lg hover:scale-[1.03]",
       selected ? "border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary shadow-xl scale-[1.02]" : "border-border"
@@ -409,7 +408,7 @@ export function SummarizerClientWrapper() {
         <CardHeader className="text-center px-4 pt-6 pb-6 md:p-6">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
         </CardHeader>
-        <CardContent className="px-2 sm:px-4 md:px-6 pt-0">
+        <CardContent className="p-4 md:p-6 pt-0">
           {!summaryResult && !isProcessing && (
             <>
               <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
@@ -510,7 +509,7 @@ export function SummarizerClientWrapper() {
 
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
-                <div className="flex overflow-x-auto space-x-4 pb-4 scroll-hover sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:pb-0 sm:overflow-x-visible lg:grid-cols-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
@@ -554,7 +553,7 @@ export function SummarizerClientWrapper() {
               )}
               
               <Card className="mb-6 shadow-inner bg-muted/30">
-                <CardContent id="summaryContent" className="p-2 sm:p-4 md:p-6">
+                <CardContent id="summaryContent" className="p-4 md:p-6">
                     {selectedOutputFormat === 'qcm' && summaryResult.quizData ? (
                         <QuizView quizData={summaryResult.quizData} summaryContent={summaryResult.content} />
                     ) : (
