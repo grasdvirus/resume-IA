@@ -409,7 +409,7 @@ export function SummarizerClientWrapper() {
         <CardHeader className="text-center px-4 pt-6 pb-6 md:p-6">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pt-0 md:p-6 md:pt-0">
+        <CardContent className="px-2 sm:px-4 md:px-6 pt-0">
           {!summaryResult && !isProcessing && (
             <>
               <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
@@ -510,7 +510,7 @@ export function SummarizerClientWrapper() {
 
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
-                <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10 sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:pb-0 sm:overflow-x-visible lg:grid-cols-4">
+                <div className="flex overflow-x-auto space-x-4 pb-4 scroll-hover sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:pb-0 sm:overflow-x-visible lg:grid-cols-4">
                   <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
                   <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
@@ -554,7 +554,7 @@ export function SummarizerClientWrapper() {
               )}
               
               <Card className="mb-6 shadow-inner bg-muted/30">
-                <CardContent id="summaryContent" className="p-3 md:p-6">
+                <CardContent id="summaryContent" className="p-2 sm:p-4 md:p-6">
                     {selectedOutputFormat === 'qcm' && summaryResult.quizData ? (
                         <QuizView quizData={summaryResult.quizData} summaryContent={summaryResult.content} />
                     ) : (
@@ -612,25 +612,6 @@ export function SummarizerClientWrapper() {
         </CardContent>
       </Card>
       <style jsx global>{`
-        .scrollbar-thin {
-          scrollbar-width: thin;
-          scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--primary) / 0.1);
-        }
-        .scrollbar-thin::-webkit-scrollbar {
-          height: 8px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-track {
-          background: hsl(var(--primary) / 0.1);
-          border-radius: 10px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-          background-color: hsl(var(--primary) / 0.5);
-          border-radius: 10px;
-          border: 2px solid hsl(var(--primary) / 0.1);
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background-color: hsl(var(--primary) / 0.7);
-        }
         .result-content-area ul, .result-content-area ol {
           list-style-position: inside;
           padding-left: 1.5em; 

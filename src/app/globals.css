@@ -113,3 +113,23 @@ body {
     min-height: 100vh;
   }
 }
+
+/* Custom scrollbar styles */
+.scroll-hover {
+  scrollbar-width: thin; /* For Firefox */
+  scrollbar-color: rgba(100, 100, 255, 0.4) transparent; /* For Firefox */
+}
+.scroll-hover::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-hover::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 255, 0.2);
+  border-radius: 3px;
+}
+.scroll-hover:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 255, 0.4);
+}

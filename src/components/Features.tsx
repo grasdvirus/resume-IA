@@ -56,7 +56,7 @@ export function Features() {
           Pourquoi choisir Résumé IA ?
         </h2>
         <div className={cn(
-          "flex overflow-x-auto space-x-4 pb-4 scrollbar-thin scrollbar-thumb-primary/50 scrollbar-track-primary/10", 
+          "flex overflow-x-auto space-x-4 pb-4 scroll-hover", 
           "md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-8 md:space-x-0 md:pb-0 md:overflow-x-visible"
         )}>
           {featuresData.map((feature, index) => (
@@ -89,27 +89,6 @@ export function Features() {
           ))}
         </div>
       </div>
-      <style jsx global>{`
-        .scrollbar-thin {
-          scrollbar-width: thin;
-          scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--primary) / 0.1);
-        }
-        .scrollbar-thin::-webkit-scrollbar {
-          height: 8px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-track {
-          background: hsl(var(--primary) / 0.1);
-          border-radius: 10px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-          background-color: hsl(var(--primary) / 0.5);
-          border-radius: 10px;
-          border: 2px solid hsl(var(--primary) / 0.1);
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-          background-color: hsl(var(--primary) / 0.7);
-        }
-      `}</style>
     </section>
   );
 }
