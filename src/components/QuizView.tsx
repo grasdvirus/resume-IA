@@ -47,7 +47,7 @@ export function QuizView({ quizData, summaryContent }: QuizViewProps) {
   
   return (
     <div id="qcm-container">
-       <div className="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none" dangerouslySetInnerHTML={{ __html: summaryContent }} />
+       <div className="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none scroll-hover" dangerouslySetInnerHTML={{ __html: summaryContent }} />
 
         <div id="qcm-questions-container">
             {quizData.questions.map((question, qIndex) => (

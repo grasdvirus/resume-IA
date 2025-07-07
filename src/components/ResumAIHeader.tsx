@@ -311,7 +311,7 @@ export function ResumAIHeader() {
                     <span className="text-xl font-bold font-headline">Résumé IA</span>
                  </SheetTitle>
               </SheetHeader>
-              <div className="flex-grow overflow-y-auto">
+              <div className="flex-grow overflow-y-auto scroll-hover">
                 <ul className="flex flex-col py-4 px-2 space-y-1">
                   {commonNavLinks(true)}
                    <hr className="my-2 mx-1 border-border" />
