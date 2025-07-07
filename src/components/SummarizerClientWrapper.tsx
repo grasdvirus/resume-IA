@@ -35,6 +35,13 @@ interface OptionCardProps {
   onSelect: (value: OutputFormat) => void;
 }
 
+const outputFormatsData = [
+    { icon: <Newspaper className="h-8 w-8" />, title: "Résumé classique", description: "Points clés structurés", value: "resume" as OutputFormat },
+    { icon: <BookOpen />, title: "Fiche de révision", description: "Format étudiant optimisé", value: "fiche" as OutputFormat },
+    { icon: <AudioWaveform />, title: "Version audio", description: "Écoutez votre résumé", value: "audio" as OutputFormat },
+    { icon: <ListChecks />, title: "QCM / Quiz", description: "Testez vos connaissances", value: "qcm" as OutputFormat }
+];
+
 const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, value, selected, onSelect }) => (
   <div
     className={cn(
@@ -405,10 +412,10 @@ export function SummarizerClientWrapper() {
   return (
     <section id="upload-section" className="container mx-auto px-2 sm:px-6 lg:px-8 py-12">
       <Card className="shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 ease-in-out">
-        <CardHeader className="text-center px-4 pt-6 pb-6 md:p-6">
+        <CardHeader className="text-center p-4 pt-6 pb-6 md:p-6">
           <CardTitle className="text-3xl font-headline">Que souhaitez-vous résumer ?</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 md:p-6 pt-0">
+        <CardContent className="p-2 md:p-6 pt-0">
           {!summaryResult && !isProcessing && (
             <>
               <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as InputType); setSummarySaved(false); }} className="mb-8">
@@ -509,11 +516,19 @@ export function SummarizerClientWrapper() {
 
               <div className="mb-8">
                 <h3 className="text-xl font-semibold font-headline mb-4 text-center">Format de sortie souhaité :</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <OptionCard icon={<Newspaper className="h-8 w-8" />} title="Résumé classique" description="Points clés structurés" value="resume" selected={selectedOutputFormat === 'resume'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
-                  <OptionCard icon={<BookOpen />} title="Fiche de révision" description="Format étudiant optimisé" value="fiche" selected={selectedOutputFormat === 'fiche'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
-                  <OptionCard icon={<AudioWaveform />} title="Version audio" description="Écoutez votre résumé" value="audio" selected={selectedOutputFormat === 'audio'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
-                  <OptionCard icon={<ListChecks />} title="QCM / Quiz" description="Testez vos connaissances" value="qcm" selected={selectedOutputFormat === 'qcm'} onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} />
+                <div className="flex space-x-4 overflow-x-auto pb-4 scroll-hover sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 sm:space-x-0">
+                    {outputFormatsData.map(option => (
+                        <div key={option.value} className="w-4/5 flex-shrink-0 sm:w-auto">
+                            <OptionCard 
+                            icon={option.icon} 
+                            title={option.title} 
+                            description={option.description} 
+                            value={option.value} 
+                            selected={selectedOutputFormat === option.value} 
+                            onSelect={(v) => {setSelectedOutputFormat(v); setSummarySaved(false);}} 
+                            />
+                        </div>
+                    ))}
                 </div>
               </div>
               

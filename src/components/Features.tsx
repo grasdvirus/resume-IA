@@ -54,30 +54,31 @@ export function Features() {
         <h2 className="text-3xl md:text-4xl font-bold font-headline text-center mb-12 text-shadow shadow-black/20 dark:shadow-white/20">
           Pourquoi choisir Résumé IA ?
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="flex space-x-4 overflow-x-auto pb-4 scroll-hover sm:grid sm:grid-cols-2 sm:gap-6 sm:space-x-0 lg:grid-cols-3 lg:gap-8">
           {featuresData.map((feature, index) => (
-            <Card 
-              key={index} 
-              className="text-center shadow-lg hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex flex-col"
-            >
-              <CardHeader>
-                <div className="flex justify-center mb-4">{feature.icon}</div>
-                <CardTitle className="text-2xl font-headline">{feature.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-center">
-                <p className="text-muted-foreground">{feature.description}</p>
-                {feature.isQrCodeFeature && qrCodeUrl && (
-                  <div className="mt-4 flex justify-center">
-                    <img src={qrCodeUrl} alt="QR Code pour partager le site" width="128" height="128" className="rounded-md shadow-md" />
-                  </div>
-                )}
-                {feature.isQrCodeFeature && !qrCodeUrl && (
-                  <div className="mt-4 flex justify-center text-sm text-muted-foreground">
-                    Chargement du QR code...
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <div key={index} className="w-4/5 flex-shrink-0 sm:w-auto">
+                <Card 
+                className="text-center shadow-lg hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-[1.02] flex flex-col h-full"
+                >
+                <CardHeader>
+                    <div className="flex justify-center mb-4">{feature.icon}</div>
+                    <CardTitle className="text-2xl font-headline">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow flex flex-col justify-center">
+                    <p className="text-muted-foreground">{feature.description}</p>
+                    {feature.isQrCodeFeature && qrCodeUrl && (
+                    <div className="mt-4 flex justify-center">
+                        <img src={qrCodeUrl} alt="QR Code pour partager le site" width="128" height="128" className="rounded-md shadow-md" />
+                    </div>
+                    )}
+                    {feature.isQrCodeFeature && !qrCodeUrl && (
+                    <div className="mt-4 flex justify-center text-sm text-muted-foreground">
+                        Chargement du QR code...
+                    </div>
+                    )}
+                </CardContent>
+                </Card>
+            </div>
           ))}
         </div>
       </div>
