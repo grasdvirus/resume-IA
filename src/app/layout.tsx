@@ -7,7 +7,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { SettingsProvider } from '@/contexts/SettingsContext'; // Import SettingsProvider
 
 export const metadata: Metadata = {
-  title: 'ResumAI - Résumez tout en quelques secondes',
+  title: 'ResumeAI - Résumez tout en quelques secondes',
   description: 'Documents PDF, vidéos YouTube, cours... Notre IA transforme vos contenus en résumés clairs et exploitables',
   icons: {
     icon: '/favico.png',

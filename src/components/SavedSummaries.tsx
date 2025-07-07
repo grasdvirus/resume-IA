@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, FolderArchive, FileText, CalendarDays, Trash2, Globe } from 'lucide-react';
+import { Loader2, FolderArchive, FileText, CalendarDays, Trash2, Globe, Copy } from 'lucide-react';
 import { getUserSummariesAction, deleteSummaryAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +87,41 @@ export function SavedSummaries() {
       toast({ title: "Erreur", description: `Impossible de supprimer le résumé : ${error.message}`, variant: "destructive" });
     }
   };
+  
+  const handleCopySummary = (summary: UserSavedSummary) => {
+    let textToCopy = "";
+
+    if (summary.audioText) {
+        // This is the cleanest text version, used for audio output.
+        textToCopy = summary.audioText;
+    } else if (summary.content) {
+        // Fallback to converting HTML content to plain text.
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = summary.content;
+        textToCopy = (tempDiv.textContent || tempDiv.innerText || '').trim();
+    }
+    
+    // If it's a quiz, the content is just the summary, so we should append the questions/answers.
+    if (summary.quizData) {
+        const quizString = summary.quizData.questions.map((q, index) => 
+            `\n\nQuestion ${index + 1}: ${q.questionText}\n` +
+            q.options.map(opt => `  - ${opt.text}${opt.id === q.correctAnswerId ? ' (Bonne réponse)' : ''}`).join('\n') +
+            (q.explanation ? `\n  Explication: ${q.explanation}` : '')
+        ).join('');
+        textToCopy += quizString;
+    }
+
+    if (!textToCopy.trim()) {
+        toast({ title: 'Erreur', description: 'Rien à copier.', variant: 'destructive' });
+        return;
+    }
+
+    navigator.clipboard.writeText(textToCopy.trim()).then(() => {
+        toast({ title: 'Copié !', description: 'Le résumé a été copié dans le presse-papiers.' });
+    }).catch(err => {
+        toast({ title: 'Erreur', description: 'Impossible de copier le texte.', variant: 'destructive' });
+    });
+  };
 
   return (
     <Card className="shadow-lg">
@@ -158,6 +193,9 @@ export function SavedSummaries() {
                       </div>
                   )}
                   <div className="mt-4 flex justify-end space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleCopySummary(summary)}>
+                      <Copy className="mr-1.5 h-4 w-4" /> Copier
+                    </Button>
                      <AlertDialog>
                       <AlertDialogTrigger asChild>
                          <Button variant="destructive" size="sm">

@@ -31,6 +31,13 @@ export const useSpeechSynthesis = (textToSpeak: string, lang: TargetLanguage) =>
   }, []);
 
   const handleError = useCallback((event: SpeechSynthesisErrorEvent) => {
+    // The 'canceled' error is expected when the user stops the speech manually.
+    // We don't want to show an error message in this case.
+    if (event.error === 'canceled') {
+      setIsSpeaking(false);
+      return;
+    }
+    
     setIsSpeaking(false);
     toast({
       title: "Erreur de lecture vocale",
