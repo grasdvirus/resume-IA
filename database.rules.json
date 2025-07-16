@@ -1,6 +1,11 @@
 {
   "rules": {
-    ".read": "now < 1752364800000",
-    ".write": "now < 1752364800000"
+    "summaries": {
+      "$uid": {
+        // A user can read or write to their own data path if their auth.uid matches the $uid in the path.
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    }
   }
 }
