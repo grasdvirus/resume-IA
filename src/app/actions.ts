@@ -289,12 +289,17 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
             createdAtISO = date.toISOString();
           }
         } else if (data.createdAt) {
-          // Attempt to parse if it's a string or other type
           const parsedDate = new Date(data.createdAt);
           if (!isNaN(parsedDate.getTime())) {
             createdAtISO = parsedDate.toISOString();
           }
         }
+
+        // Robustly assign values with defaults for potentially missing fields in old data
+        const inputType = data.inputType && InputTypeSchema.safeParse(data.inputType).success ? data.inputType : 'text';
+        const outputFormat = data.outputFormat && OutputFormatSchema.safeParse(data.outputFormat).success ? data.outputFormat : 'resume';
+        const targetLanguage = data.targetLanguage && TargetLanguageSchema.safeParse(data.targetLanguage).success ? data.targetLanguage : 'fr';
+        const summaryLength = data.summaryLength && SummaryLengthSchema.safeParse(data.summaryLength).success ? data.summaryLength : 'moyen';
 
         summaries.push({
           id: key,
@@ -304,16 +309,15 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
           quizData: data.quizData as QuizData | undefined,
           audioText: data.audioText as string | undefined,
           sourceUrl: data.sourceUrl as string | undefined,
-          inputType: data.inputType as InputType || 'text',
-          inputValue: data.inputValue as string || "",
-          outputFormat: data.outputFormat as OutputFormat || 'resume',
-          targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
-          summaryLength: data.summaryLength as SummaryLength || 'moyen', 
+          inputType: inputType,
+          inputValue: typeof data.inputValue === 'string' ? data.inputValue : "",
+          outputFormat: outputFormat,
+          targetLanguage: targetLanguage,
+          summaryLength: summaryLength, 
           createdAt: createdAtISO,
         });
       } catch (loopError) {
           console.error(`Error processing summary with key ${key}:`, loopError);
-          // Continue to the next summary instead of crashing the whole function
       }
     }
     
@@ -322,7 +326,6 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     return summaries;
   } catch (error) {
     console.error("Failed to fetch user summaries:", error);
-    // Return an empty array on failure to prevent the UI from breaking.
     return []; 
   }
 }
