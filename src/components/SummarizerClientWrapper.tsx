@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label"
 import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, Globe, Save, Rows3 } from 'lucide-react';
-import { generateSummaryAction, saveSummary, getUserSummaries, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
+import { generateSummaryAction, saveSummaryAction, type SummaryResult, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -255,9 +255,6 @@ export function SummarizerClientWrapper() {
         pdfExtractedTextForAction 
       );
       setSummaryResult(result);
-      if (user && result) {
-        await saveSummary(user.uid, result);
-      }
     } catch (e: any) {
       setError(e.message || "Une erreur est survenue.");
       toast({ title: "Erreur de résumé", description: e.message || "Une erreur est survenue lors de la génération du résumé.", variant: "destructive" });
@@ -292,7 +289,7 @@ export function SummarizerClientWrapper() {
     setIsSaving(true);
     
     try {
-      await saveSummary(user.uid, summaryResult);
+      await saveSummaryAction(user.uid, summaryResult);
       toast({ title: "Succès", description: "Résumé sauvegardé avec succès !" });
       setSummarySaved(true);
     } catch (error: any) {
@@ -667,7 +664,7 @@ export function SummarizerClientWrapper() {
           .no-print {
             display: none !important;
           }
-          #qcm-questions-container, .flex.flex-wrap.gap-3.justify-center { 
+          #qcm-questions-container, #qcm-container .flex, #qcm-container button { 
             display: none !important;
           }
         }

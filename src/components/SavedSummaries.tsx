@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, FolderArchive, FileText, CalendarDays, Trash2, Globe, Copy } from 'lucide-react';
-import { getUserSummaries, deleteSummaryAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
+import { type UserSavedSummary } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,53 +20,64 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-// These labels are illustrative and might need to be sourced from `actions` if they become dynamic.
-const OutputFormatLabels = {
-    resume: "Résumé",
-    fiche: "Fiche de révision",
-    qcm: "QCM",
-    audio: "Audio"
-};
-const InputTypeLabels = {
-    text: "Texte",
-    youtube: "Vidéo YouTube",
-    pdf: "PDF",
-    wikipedia: "Wikipédia",
-};
+import { db } from '@/lib/firebase';
+import { ref, onValue, off, remove } from 'firebase/database';
 
 export function SavedSummaries() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [summaries, setSummaries] = useState<UserSavedSummary[]>([]);
   const [isLoadingSummaries, setIsLoadingSummaries] = useState(true);
-
-  const fetchSummaries = useCallback(async (userId: string) => {
-    setIsLoadingSummaries(true);
-    try {
-      const userSummaries = await getUserSummaries(userId);
-      setSummaries(userSummaries);
-    } catch (error: any) {
-      toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés: " + error.message, variant: "destructive" });
-    } finally {
-      setIsLoadingSummaries(false);
-    }
-  }, [toast]);
-
+  
   useEffect(() => {
     if (user) {
-      fetchSummaries(user.uid);
+      setIsLoadingSummaries(true);
+      const summaryRef = ref(db, `summaries/${user.uid}`);
+      
+      const listener = onValue(summaryRef, (snapshot) => {
+        const summariesData: UserSavedSummary[] = [];
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            const id = child.key;
+            const data = child.val();
+            if (id && data) {
+                 summariesData.push({
+                    id: id,
+                    createdAt: new Date(data.createdAt || Date.now()).toISOString(),
+                    ...data
+                });
+            }
+          });
+        }
+        // Sort descending by creation date
+        setSummaries(summariesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setIsLoadingSummaries(false);
+      }, (error) => {
+        console.error("Firebase read failed: " + error.code);
+        toast({ title: "Erreur de chargement", description: "Impossible de charger les résumés sauvegardés. Vérifiez votre connexion et les autorisations.", variant: "destructive" });
+        setIsLoadingSummaries(false);
+      });
+
+      // Detach the listener when the component unmounts
+      return () => {
+        off(summaryRef, 'value', listener);
+      };
+
     } else if (!authLoading) {
+      // If not loading and no user, clear summaries and stop loading
+      setSummaries([]);
       setIsLoadingSummaries(false);
     }
-  }, [user, authLoading, fetchSummaries]);
+  }, [user, authLoading, toast]);
+
 
   const handleDeleteSummary = async (summaryId: string) => {
     if (!user) return;
     try {
-      await deleteSummaryAction(user.uid, summaryId);
-      setSummaries(summaries.filter(s => s.id !== summaryId));
+      const summaryToDeleteRef = ref(db, `summaries/${user.uid}/${summaryId}`);
+      await remove(summaryToDeleteRef);
       toast({ title: "Succès", description: "Le résumé a été supprimé."});
+      // The onValue listener will automatically update the state, no need to call setSummaries here.
     } catch(error: any) {
       toast({ title: "Erreur", description: `Impossible de supprimer le résumé : ${error.message}`, variant: "destructive" });
     }

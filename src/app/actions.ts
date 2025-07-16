@@ -239,46 +239,10 @@ export interface UserSavedSummary extends SummaryResult {
 }
 
 // Enregistrer un résumé dans Firebase
-export async function saveSummary(userId: string, summary: SummaryResult): Promise<void> {
+export async function saveSummaryAction(userId: string, summary: SummaryResult): Promise<void> {
   const summaryRef = ref(db, `summaries/${userId}`);
   await push(summaryRef, {
       ...summary,
       createdAt: Date.now() // Add timestamp on save
   });
-}
-
-// Récupérer tous les résumés d’un utilisateur
-export async function getUserSummaries(userId: string): Promise<UserSavedSummary[]> {
-  const summaryRef = ref(db, `summaries/${userId}`);
-  const snapshot = await get(summaryRef);
-  const summaries: UserSavedSummary[] = [];
-
-  if (snapshot.exists()) {
-    snapshot.forEach((child) => {
-      const id = child.key;
-      const data = child.val();
-      summaries.push({
-          id: id!,
-          createdAt: new Date(data.createdAt || Date.now()).toISOString(),
-          ...data
-      });
-    });
-  }
-  
-  // Sort descending by creation date
-  return summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-}
-
-export async function deleteSummaryAction(userId: string, summaryId: string): Promise<{ success: boolean }> {
-  if (!userId || !summaryId) {
-    throw new Error("UserId et SummaryId sont requis pour la suppression.");
-  }
-  try {
-    const summaryRef = ref(db, `summaries/${userId}/${summaryId}`);
-    await remove(summaryRef);
-    return { success: true };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la suppression du résumé.";
-    throw new Error(`Impossible de supprimer le résumé: ${errorMessage}`);
-  }
 }
