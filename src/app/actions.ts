@@ -9,8 +9,6 @@ import { generateQuiz, type QuizData } from '@/ai/flows/generate-quiz-flow';
 import { generateRevisionSheet, type RevisionSheetData } from '@/ai/flows/generate-revision-sheet-flow';
 import { summarizeWikipediaArticle } from '@/ai/flows/summarize-wikipedia-page-flow';
 import { z } from 'zod';
-import { db } from '@/lib/firebase'; 
-import { ref, push, get, remove, set } from 'firebase/database';
 
 export interface SummaryResult {
   title: string;
@@ -18,6 +16,12 @@ export interface SummaryResult {
   quizData?: QuizData;
   audioText?: string;
   sourceUrl?: string;
+  // Metadata for saving
+  inputType: InputType;
+  inputValue: string;
+  outputFormat: OutputFormat;
+  targetLanguage: TargetLanguage;
+  summaryLength: SummaryLength;
 }
 
 const InputTypeSchema = z.enum(['text', 'youtube', 'pdf', 'wikipedia']);
@@ -169,6 +173,11 @@ export async function generateSummaryAction(
             content: `<div class="bg-muted p-4 rounded-lg mb-6 max-h-[200px] overflow-y-auto prose prose-sm sm:prose max-w-none"><p>${summaryForQcmView.replace(/\n/g, '<br/>')}</p></div>`,
             quizData: quizData,
             sourceUrl: sourceUrl,
+            inputType: inputType,
+            inputValue: inputValueOrFileName,
+            outputFormat: outputFormat,
+            targetLanguage: targetLanguage,
+            summaryLength: summaryLength,
         };
     }
 
@@ -191,6 +200,11 @@ export async function generateSummaryAction(
             `,
             audioText: summaryForAudioView,
             sourceUrl: sourceUrl,
+            inputType: inputType,
+            inputValue: inputValueOrFileName,
+            outputFormat: outputFormat,
+            targetLanguage: targetLanguage,
+            summaryLength: summaryLength,
         };
     }
 
@@ -203,6 +217,11 @@ export async function generateSummaryAction(
         title: finalTitle,
         content: finalContent,
         sourceUrl: sourceUrl,
+        inputType: inputType,
+        inputValue: inputValueOrFileName,
+        outputFormat: outputFormat,
+        targetLanguage: targetLanguage,
+        summaryLength: summaryLength,
     };
 
   } catch (error) {
@@ -218,31 +237,7 @@ const OutputFormatLabels: Record<OutputFormat, string> = {
     audio: "Version Audio"
 };
 
-export interface UserSummaryToSave {
-  userId: string;
-  title: string;
-  content: string; 
-  quizData?: QuizData;
-  audioText?: string;
-  sourceUrl?: string;
-  inputType: InputType;
-  inputValue: string; 
-  outputFormat: OutputFormat;
-  targetLanguage: TargetLanguage;
-  summaryLength: SummaryLength; 
-  createdAt: number; 
-}
-
 export interface UserSavedSummary extends SummaryResult {
   id: string;
   createdAt: string; 
-}
-
-// Enregistrer un résumé dans Firebase
-export async function saveSummaryAction(userId: string, summary: SummaryResult): Promise<void> {
-  const summaryRef = ref(db, `summaries/${userId}`);
-  await push(summaryRef, {
-      ...summary,
-      createdAt: Date.now() // Add timestamp on save
-  });
 }

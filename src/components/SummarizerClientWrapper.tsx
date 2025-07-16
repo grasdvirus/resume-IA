@@ -11,14 +11,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label"
 import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, Globe, Save, Rows3 } from 'lucide-react';
-import { generateSummaryAction, saveSummaryAction, type SummaryResult, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
+import { generateSummaryAction, type SummaryResult, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import * as pdfjsLib from 'pdfjs-dist';
 import { QuizView } from '@/components/QuizView';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
+import { db } from '@/lib/firebase';
+import { ref, push } from 'firebase/database';
 
 
 type InputType = "pdf" | "video" | "text" | "wikipedia";
@@ -288,8 +290,24 @@ export function SummarizerClientWrapper() {
     }
     setIsSaving(true);
     
+    // Create a new object with only the properties to be saved.
+    const summaryToSave = {
+      title: summaryResult.title,
+      content: summaryResult.content,
+      quizData: summaryResult.quizData || null,
+      audioText: summaryResult.audioText || null,
+      sourceUrl: summaryResult.sourceUrl || null,
+      inputType: summaryResult.inputType,
+      inputValue: summaryResult.inputValue,
+      outputFormat: summaryResult.outputFormat,
+      targetLanguage: summaryResult.targetLanguage,
+      summaryLength: summaryResult.summaryLength,
+      createdAt: Date.now()
+    };
+
     try {
-      await saveSummaryAction(user.uid, summaryResult);
+      const summaryRef = ref(db, `summaries/${user.uid}`);
+      await push(summaryRef, summaryToSave);
       toast({ title: "Succès", description: "Résumé sauvegardé avec succès !" });
       setSummarySaved(true);
     } catch (error: any) {
