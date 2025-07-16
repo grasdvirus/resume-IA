@@ -276,44 +276,38 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
       try {
         const data = summariesData[key];
 
-        // Robustness check: skip if data is not an object or is missing essential fields
         if (typeof data !== 'object' || data === null || !data.title || !data.content || !data.userId) {
           console.warn(`Skipping malformed summary object with key: ${key}`);
           continue;
         }
         
         let createdAtISO = new Date().toISOString(); 
-        if (data.createdAt && typeof data.createdAt === 'number') {
+        if (typeof data.createdAt === 'number') {
           const date = new Date(data.createdAt);
           if (!isNaN(date.getTime())) {
             createdAtISO = date.toISOString();
           }
-        } else if (data.createdAt) {
+        } else if (typeof data.createdAt === 'string') {
           const parsedDate = new Date(data.createdAt);
           if (!isNaN(parsedDate.getTime())) {
             createdAtISO = parsedDate.toISOString();
           }
         }
-
-        // Robustly assign values with defaults for potentially missing fields in old data
-        const inputType = data.inputType && InputTypeSchema.safeParse(data.inputType).success ? data.inputType : 'text';
-        const outputFormat = data.outputFormat && OutputFormatSchema.safeParse(data.outputFormat).success ? data.outputFormat : 'resume';
-        const targetLanguage = data.targetLanguage && TargetLanguageSchema.safeParse(data.targetLanguage).success ? data.targetLanguage : 'fr';
-        const summaryLength = data.summaryLength && SummaryLengthSchema.safeParse(data.summaryLength).success ? data.summaryLength : 'moyen';
-
+        
         summaries.push({
           id: key,
-          userId: data.userId as string,
-          title: data.title as string,
-          content: data.content as string,
-          quizData: data.quizData as QuizData | undefined,
-          audioText: data.audioText as string | undefined,
-          sourceUrl: data.sourceUrl as string | undefined,
-          inputType: inputType,
-          inputValue: typeof data.inputValue === 'string' ? data.inputValue : "",
-          outputFormat: outputFormat,
-          targetLanguage: targetLanguage,
-          summaryLength: summaryLength, 
+          userId: data.userId,
+          title: data.title,
+          content: data.content,
+          quizData: data.quizData,
+          audioText: data.audioText,
+          sourceUrl: data.sourceUrl,
+          inputValue: data.inputValue || "",
+          // Assign defaults for fields that might be missing in old data
+          inputType: data.inputType || 'text',
+          outputFormat: data.outputFormat || 'resume',
+          targetLanguage: data.targetLanguage || 'fr',
+          summaryLength: data.summaryLength || 'moyen', 
           createdAt: createdAtISO,
         });
       } catch (loopError) {
@@ -329,6 +323,7 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     return []; 
   }
 }
+
 
 export async function deleteSummaryAction(userId: string, summaryId: string): Promise<{ success: boolean }> {
   if (!userId || !summaryId) {
