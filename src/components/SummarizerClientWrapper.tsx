@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label"
 import { Loader2, UploadCloud, FileText, Youtube, AlignLeft, ListChecks, BookOpen, AudioWaveform, Download, Share2, Plus, AlertCircle, Languages, Printer, PlayCircle, StopCircle, Newspaper, Globe, Save, Rows3 } from 'lucide-react';
-import { generateSummaryAction, saveSummaryAction, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
+import { generateSummaryAction, saveSummary, getUserSummaries, type SummaryResult, type UserSummaryToSave, type InputType as ActionInputType, type OutputFormat as ActionOutputFormat, type TargetLanguage as ActionTargetLanguage, type SummaryLength as ActionSummaryLength } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -255,6 +255,9 @@ export function SummarizerClientWrapper() {
         pdfExtractedTextForAction 
       );
       setSummaryResult(result);
+      if (user && result) {
+        await saveSummary(user.uid, result);
+      }
     } catch (e: any) {
       setError(e.message || "Une erreur est survenue.");
       toast({ title: "Erreur de résumé", description: e.message || "Une erreur est survenue lors de la génération du résumé.", variant: "destructive" });
@@ -287,29 +290,9 @@ export function SummarizerClientWrapper() {
       return;
     }
     setIsSaving(true);
-
-    let originalInputValueForSave = "";
-    if (activeTab === "pdf" && pdfFileName) originalInputValueForSave = pdfFileName; 
-    else if (activeTab === "video") originalInputValueForSave = videoUrl;
-    else if (activeTab === "text") originalInputValueForSave = inputText;
-    else if (activeTab === "wikipedia") originalInputValueForSave = wikiSearchTerm;
     
-    const summaryToSave: UserSummaryToSave = {
-      userId: user.uid,
-      title: summaryResult.title,
-      content: summaryResult.content, 
-      quizData: summaryResult.quizData,
-      audioText: summaryResult.audioText,
-      sourceUrl: summaryResult.sourceUrl,
-      inputType: activeTab as ActionInputType, 
-      inputValue: originalInputValueForSave, 
-      outputFormat: selectedOutputFormat as ActionOutputFormat,
-      targetLanguage: selectedLanguage as ActionTargetLanguage,
-      summaryLength: selectedSummaryLength as ActionSummaryLength, 
-    };
-
     try {
-      await saveSummaryAction(summaryToSave);
+      await saveSummary(user.uid, summaryResult);
       toast({ title: "Succès", description: "Résumé sauvegardé avec succès !" });
       setSummarySaved(true);
     } catch (error: any) {
@@ -578,16 +561,22 @@ export function SummarizerClientWrapper() {
               </Card>
 
               <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 items-center">
-                {user && (
+                {user && !summarySaved && (
                   <Button 
                     onClick={handleSaveSummary} 
                     variant="default" 
                     className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white transition-all duration-300 ease-in-out h-10"
-                    disabled={isSaving || summarySaved}
+                    disabled={isSaving}
                   >
                     {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                    {summarySaved ? "Sauvegardé" : "Sauvegarder"}
+                    Sauvegarder
                   </Button>
+                )}
+                 {user && summarySaved && (
+                    <Button variant="default" className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 text-white h-10" disabled>
+                        <Save className="mr-2 h-5 w-5" />
+                        Sauvegardé
+                    </Button>
                 )}
                 <Button onClick={downloadResult} variant="outline" className="w-full sm:w-auto text-foreground h-10"><Download className="mr-2 h-5 w-5" />Télécharger (.txt)</Button>
                 <Button onClick={shareResult} variant="outline" className="w-full sm:w-auto text-foreground h-10"><Share2 className="mr-2 h-5 w-5" />Partager</Button>
@@ -686,5 +675,3 @@ export function SummarizerClientWrapper() {
     </section>
   );
 }
-
-    

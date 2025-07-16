@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, FolderArchive, FileText, CalendarDays, Trash2, Globe, Copy } from 'lucide-react';
-import { getUserSummariesAction, deleteSummaryAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
+import { getUserSummaries, deleteSummaryAction, type UserSavedSummary, type OutputFormat, type InputType, type SummaryLength, type TargetLanguage } from '@/app/actions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,33 +22,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const OutputFormatLabels: Record<OutputFormat, string> = {
+// These labels are illustrative and might need to be sourced from `actions` if they become dynamic.
+const OutputFormatLabels = {
     resume: "Résumé",
     fiche: "Fiche de révision",
     qcm: "QCM",
     audio: "Audio"
 };
-const InputTypeLabels: Record<InputType, string> = {
+const InputTypeLabels = {
     text: "Texte",
     youtube: "Vidéo YouTube",
     pdf: "PDF",
     wikipedia: "Wikipédia",
-};
-const SummaryLengthLabels: Record<SummaryLength, string> = {
-    court: "Court",
-    moyen: "Moyen",
-    long: "Long",
-    detaille: "Détaillé"
-};
-const TargetLanguageLabels: Record<TargetLanguage, string> = {
-    fr: 'Français',
-    en: 'Anglais',
-    es: 'Espagnol',
-    de: 'Allemand',
-    it: 'Italien',
-    pt: 'Portugais',
-    ja: 'Japonais',
-    ko: 'Coréen',
 };
 
 export function SavedSummaries() {
@@ -60,7 +45,7 @@ export function SavedSummaries() {
   const fetchSummaries = useCallback(async (userId: string) => {
     setIsLoadingSummaries(true);
     try {
-      const userSummaries = await getUserSummariesAction(userId);
+      const userSummaries = await getUserSummaries(userId);
       setSummaries(userSummaries);
     } catch (error: any) {
       toast({ title: "Erreur", description: "Impossible de charger vos résumés sauvegardés: " + error.message, variant: "destructive" });
@@ -92,16 +77,13 @@ export function SavedSummaries() {
     let textToCopy = "";
 
     if (summary.audioText) {
-        // This is the cleanest text version, used for audio output.
         textToCopy = summary.audioText;
     } else if (summary.content) {
-        // Fallback to converting HTML content to plain text.
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = summary.content;
         textToCopy = (tempDiv.textContent || tempDiv.innerText || '').trim();
     }
     
-    // If it's a quiz, the content is just the summary, so we should append the questions/answers.
     if (summary.quizData) {
         const quizString = summary.quizData.questions.map((q, index) => 
             `\n\nQuestion ${index + 1}: ${q.questionText}\n` +
@@ -150,17 +132,13 @@ export function SavedSummaries() {
                 <AccordionTrigger className="px-4 py-3 hover:no-underline group">
                   <div className="flex-1 text-left overflow-hidden">
                     <h4 className="font-semibold text-base text-primary group-hover:text-primary/90 truncate" title={summary.title}>
-                      {summary.title}
+                      {summary.title || "Résumé sans titre"}
                     </h4>
                     <div className="flex items-center text-xs text-muted-foreground mt-1 space-x-2 sm:space-x-3 flex-wrap">
                       <div className="flex items-center">
                         <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                         {new Date(summary.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </div>
-                       <Badge variant="secondary" className="capitalize">{OutputFormatLabels[summary.outputFormat] || summary.outputFormat}</Badge>
-                       <Badge variant="outline" className="capitalize">{InputTypeLabels[summary.inputType] || summary.inputType}</Badge>
-                       {summary.summaryLength && <Badge variant="outline" className="capitalize bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700">{SummaryLengthLabels[summary.summaryLength] || summary.summaryLength}</Badge>}
-                       {summary.targetLanguage && summary.targetLanguage !== 'fr' && <Badge variant="outline" className="capitalize bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700">{TargetLanguageLabels[summary.targetLanguage] || summary.targetLanguage}</Badge>}
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -174,7 +152,7 @@ export function SavedSummaries() {
                           </a>
                       </div>
                   )}
-                  {summary.quizData && summary.outputFormat === 'qcm' && (
+                  {summary.quizData && (
                       <div className="mt-4 border-t border-border pt-3">
                           <h5 className="font-semibold mb-2 text-sm">Questions du Quiz :</h5>
                           {summary.quizData.questions.map((q, idx) => (

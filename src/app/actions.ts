@@ -10,7 +10,7 @@ import { generateRevisionSheet, type RevisionSheetData } from '@/ai/flows/genera
 import { summarizeWikipediaArticle } from '@/ai/flows/summarize-wikipedia-page-flow';
 import { z } from 'zod';
 import { db } from '@/lib/firebase'; 
-import { ref, push, get, remove } from 'firebase/database';
+import { ref, push, get, remove, set } from 'firebase/database';
 
 export interface SummaryResult {
   title: string;
@@ -230,100 +230,44 @@ export interface UserSummaryToSave {
   outputFormat: OutputFormat;
   targetLanguage: TargetLanguage;
   summaryLength: SummaryLength; 
-  createdAt?: number; 
+  createdAt: number; 
 }
 
-export interface UserSavedSummary extends Omit<UserSummaryToSave, 'createdAt'> {
+export interface UserSavedSummary extends SummaryResult {
   id: string;
   createdAt: string; 
 }
 
+// Enregistrer un résumé dans Firebase
+export async function saveSummary(userId: string, summary: SummaryResult): Promise<void> {
+  const summaryRef = ref(db, `summaries/${userId}`);
+  await push(summaryRef, {
+      ...summary,
+      createdAt: Date.now() // Add timestamp on save
+  });
+}
 
-export async function saveSummaryAction(summaryData: UserSummaryToSave): Promise<{ id: string }> {
-  try {
-    const userSummariesRef = ref(db, `summaries/${summaryData.userId}`);
-    const newSummaryRef = push(userSummariesRef, {
-      ...summaryData,
-      createdAt: Date.now(), 
+// Récupérer tous les résumés d’un utilisateur
+export async function getUserSummaries(userId: string): Promise<UserSavedSummary[]> {
+  const summaryRef = ref(db, `summaries/${userId}`);
+  const snapshot = await get(summaryRef);
+  const summaries: UserSavedSummary[] = [];
+
+  if (snapshot.exists()) {
+    snapshot.forEach((child) => {
+      const id = child.key;
+      const data = child.val();
+      summaries.push({
+          id: id!,
+          createdAt: new Date(data.createdAt || Date.now()).toISOString(),
+          ...data
+      });
     });
-    
-    if (!newSummaryRef.key) {
-      throw new Error("Impossible d'obtenir la clé pour le nouveau résumé sauvegardé.");
-    }
-    return { id: newSummaryRef.key };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erreur inconnue lors de la sauvegarde du résumé.";
-    throw new Error(`Impossible de sauvegarder le résumé: ${errorMessage}`);
   }
+  
+  // Sort descending by creation date
+  return summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
-
-export async function getUserSummariesAction(userId: string): Promise<UserSavedSummary[]> {
-  if (!userId) {
-    return [];
-  }
-  try {
-    const userSummariesRef = ref(db, `summaries/${userId}`);
-    const snapshot = await get(userSummariesRef);
-    
-    if (!snapshot.exists()) {
-      return [];
-    }
-
-    const summariesData = snapshot.val();
-    const summaries: UserSavedSummary[] = [];
-
-    for (const key in summariesData) {
-      try {
-        const data = summariesData[key];
-
-        if (typeof data !== 'object' || data === null || !data.title || !data.content || !data.userId) {
-          console.warn(`Skipping malformed summary object with key: ${key}`);
-          continue;
-        }
-        
-        let createdAtISO = new Date().toISOString(); 
-        if (typeof data.createdAt === 'number') {
-          const date = new Date(data.createdAt);
-          if (!isNaN(date.getTime())) {
-            createdAtISO = date.toISOString();
-          }
-        } else if (typeof data.createdAt === 'string') {
-          const parsedDate = new Date(data.createdAt);
-          if (!isNaN(parsedDate.getTime())) {
-            createdAtISO = parsedDate.toISOString();
-          }
-        }
-        
-        summaries.push({
-          id: key,
-          userId: data.userId,
-          title: data.title,
-          content: data.content,
-          quizData: data.quizData,
-          audioText: data.audioText,
-          sourceUrl: data.sourceUrl,
-          inputValue: data.inputValue || "",
-          // Assign defaults for fields that might be missing in old data
-          inputType: data.inputType || 'text',
-          outputFormat: data.outputFormat || 'resume',
-          targetLanguage: data.targetLanguage || 'fr',
-          summaryLength: data.summaryLength || 'moyen', 
-          createdAt: createdAtISO,
-        });
-      } catch (loopError) {
-          console.error(`Error processing summary with key ${key}:`, loopError);
-      }
-    }
-    
-    summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return summaries;
-  } catch (error) {
-    console.error("Failed to fetch user summaries:", error);
-    return []; 
-  }
-}
-
 
 export async function deleteSummaryAction(userId: string, summaryId: string): Promise<{ success: boolean }> {
   if (!userId || !summaryId) {
