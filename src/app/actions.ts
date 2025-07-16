@@ -273,38 +273,56 @@ export async function getUserSummariesAction(userId: string): Promise<UserSavedS
     const summaries: UserSavedSummary[] = [];
 
     for (const key in summariesData) {
-      const data = summariesData[key];
-      let createdAtISO = new Date().toISOString(); 
-      if (data.createdAt && typeof data.createdAt === 'number') {
-        createdAtISO = new Date(data.createdAt).toISOString();
-      } else if (data.createdAt) {
-        const parsedDate = new Date(data.createdAt);
-        if (!isNaN(parsedDate.getTime())) {
-          createdAtISO = parsedDate.toISOString();
-        }
-      }
+      try {
+        const data = summariesData[key];
 
-      summaries.push({
-        id: key,
-        userId: data.userId as string,
-        title: data.title as string || "Titre non disponible",
-        content: data.content as string || "Contenu non disponible",
-        quizData: data.quizData as QuizData | undefined,
-        audioText: data.audioText as string | undefined,
-        sourceUrl: data.sourceUrl as string | undefined,
-        inputType: data.inputType as InputType || 'text',
-        inputValue: data.inputValue as string || "",
-        outputFormat: data.outputFormat as OutputFormat || 'resume',
-        targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
-        summaryLength: data.summaryLength as SummaryLength || 'moyen', 
-        createdAt: createdAtISO,
-      });
+        // Robustness check: skip if data is not an object or is missing essential fields
+        if (typeof data !== 'object' || data === null || !data.title || !data.content || !data.userId) {
+          console.warn(`Skipping malformed summary object with key: ${key}`);
+          continue;
+        }
+        
+        let createdAtISO = new Date().toISOString(); 
+        if (data.createdAt && typeof data.createdAt === 'number') {
+          const date = new Date(data.createdAt);
+          if (!isNaN(date.getTime())) {
+            createdAtISO = date.toISOString();
+          }
+        } else if (data.createdAt) {
+          // Attempt to parse if it's a string or other type
+          const parsedDate = new Date(data.createdAt);
+          if (!isNaN(parsedDate.getTime())) {
+            createdAtISO = parsedDate.toISOString();
+          }
+        }
+
+        summaries.push({
+          id: key,
+          userId: data.userId as string,
+          title: data.title as string,
+          content: data.content as string,
+          quizData: data.quizData as QuizData | undefined,
+          audioText: data.audioText as string | undefined,
+          sourceUrl: data.sourceUrl as string | undefined,
+          inputType: data.inputType as InputType || 'text',
+          inputValue: data.inputValue as string || "",
+          outputFormat: data.outputFormat as OutputFormat || 'resume',
+          targetLanguage: data.targetLanguage as TargetLanguage || 'fr',
+          summaryLength: data.summaryLength as SummaryLength || 'moyen', 
+          createdAt: createdAtISO,
+        });
+      } catch (loopError) {
+          console.error(`Error processing summary with key ${key}:`, loopError);
+          // Continue to the next summary instead of crashing the whole function
+      }
     }
     
     summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return summaries;
   } catch (error) {
+    console.error("Failed to fetch user summaries:", error);
+    // Return an empty array on failure to prevent the UI from breaking.
     return []; 
   }
 }
