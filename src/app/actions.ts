@@ -1,4 +1,3 @@
-
 // src/app/actions.ts
 'use server';
 
@@ -24,17 +23,11 @@ export interface SummaryResult {
   summaryLength: SummaryLength;
 }
 
-const InputTypeSchema = z.enum(['text', 'youtube', 'pdf', 'wikipedia']);
-export type InputType = z.infer<typeof InputTypeSchema>;
+export type InputType = 'text' | 'youtube' | 'pdf' | 'wikipedia';
+export type OutputFormat = 'resume' | 'fiche' | 'qcm' | 'audio';
+export type TargetLanguage = 'fr' | 'en' | 'es' | 'de' | 'it' | 'pt' | 'ja' | 'ko';
+export type SummaryLength = 'court' | 'moyen' | 'long' | 'detaille';
 
-const OutputFormatSchema = z.enum(['resume', 'fiche', 'qcm', 'audio']);
-export type OutputFormat = z.infer<typeof OutputFormatSchema>;
-
-const TargetLanguageSchema = z.enum(['fr', 'en', 'es', 'de', 'it', 'pt', 'ja', 'ko']);
-export type TargetLanguage = z.infer<typeof TargetLanguageSchema>;
-
-const SummaryLengthSchema = z.enum(['court', 'moyen', 'long', 'detaille']);
-export type SummaryLength = z.infer<typeof SummaryLengthSchema>;
 
 const languageMapDisplay: Record<TargetLanguage, string> = {
   fr: 'Français',
