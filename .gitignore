@@ -5,31 +5,38 @@
 /.pnp
 .pnp.js
 
-# Testing
-/coverage
-
 # Next.js
 /.next/
 /out/
-
-# Production
-/build
-
-# Misc
-.DS_Store
-*.pem
+/build/
 
 # Local Environment Variables
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env*.local
 
-# Genkit
-.genkit/
-.genkit-cache.json
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# IDE
-.idea/
-.vscode/*
+# IDE / Editor specific
+/.vscode/*
 !.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Misc
+next-env.d.ts
